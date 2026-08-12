@@ -44,6 +44,11 @@ func RuntimeDir() string {
 	return filepath.Join(Dir(), "runtime")
 }
 
+// JavaScriptDir 返回 JavaScript 扩展持久化数据目录。
+func JavaScriptDir() string {
+	return filepath.Join(Dir(), "javascript")
+}
+
 // SkillsDir 返回 Skills 安装目录。
 func SkillsDir() string {
 	return filepath.Join(Dir(), "skills")

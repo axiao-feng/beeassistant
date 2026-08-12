@@ -31,6 +31,10 @@ func runtimeDir() string {
 	return filepath.Join(appdata.Dir(), "runtime")
 }
 
+func appdataJavaScriptStateDir() string {
+	return filepath.Join(appdata.JavaScriptDir(), "state")
+}
+
 // RegisterDefaults 将工具适配器连接到新的应用工具注册表实例。
 func RegisterDefaults(mcpProvider toolport.MCPProvider) (*apptools.ToolGroupRegistry, error) {
 	cfg := config.Get()
@@ -43,6 +47,10 @@ func RegisterDefaults(mcpProvider toolport.MCPProvider) (*apptools.ToolGroupRegi
 		HistoryReader: eventlog.NewSessionMessageReader(sessionsDir, eventlog.NewSessionHistoryManager()),
 	}
 	registry := apptools.NewToolGroupRegistry(resolveCtx)
+	javascriptHost, err := newJavaScriptHost(registry)
+	if err != nil {
+		return nil, fmt.Errorf("initialize javascript host: %w", err)
+	}
 	if mcpProvider == nil {
 		mcpProvider = mcpadapter.NewProvider()
 	}
@@ -280,7 +288,7 @@ func RegisterDefaults(mcpProvider toolport.MCPProvider) (*apptools.ToolGroupRegi
 					if !definition.Enabled {
 						continue
 					}
-					tool, err := javascripttool.NewTool(definition)
+					tool, err := javascripttool.NewToolWithOptions(definition, javascriptHost.options())
 					if err != nil {
 						return nil, fmt.Errorf("initialize javascript tool %s: %w", definition.ID, err)
 					}

@@ -73,7 +73,7 @@ CLI 也支持直接查询、管道输入、恢复会话和调用指定智能体�
 
 - 使用 [Skills](./docs/skills.md) 为智能体提供可复用的领域知识和工作流程。
 - 通过 [MCP](./docs/mcp.md) 接入外部工具和服务。
-- 在 Web 配置页中手写 JavaScript 或让 AI 生成脚本，注册[自定义工具与流程 Hooks](./docs/javascript.md)。
+- 在 Web 配置页中手写 JavaScript 或让 AI 生成脚本，注册[自定义工具与流程 Hooks](./docs/javascript.md)；授权后可组合内置/MCP 工具、持久化状态并向任务发送通知。
 - 创建[自定义智能体](./docs/custom-agents.md)，组合专属模型、提示词和工具。
 - 使用工作区 `AGENTS.md` 为整个项目提供统一约定。
 

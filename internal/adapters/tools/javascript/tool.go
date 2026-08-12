@@ -16,10 +16,16 @@ import (
 type Tool struct {
 	definition config.JavaScriptTool
 	program    *jsruntime.Program
+	options    Options
 }
 
 // NewTool 编译并创建 JavaScript 工具。
 func NewTool(definition config.JavaScriptTool) (*Tool, error) {
+	return NewToolWithOptions(definition, Options{})
+}
+
+// NewToolWithOptions 编译工具并注入受控宿主能力。
+func NewToolWithOptions(definition config.JavaScriptTool, options Options) (*Tool, error) {
 	program, err := jsruntime.Compile("tool:"+definition.ID, definition.Source)
 	if err != nil {
 		return nil, err
@@ -27,7 +33,7 @@ func NewTool(definition config.JavaScriptTool) (*Tool, error) {
 	if err := program.ValidateFunction(context.Background(), jsruntime.DefaultTimeout, "execute"); err != nil {
 		return nil, err
 	}
-	return &Tool{definition: definition, program: program}, nil
+	return &Tool{definition: definition, program: program, options: options}, nil
 }
 
 // ValidateDefinitions 编译所有启用的工具脚本。
@@ -79,10 +85,24 @@ func (t *Tool) Invoke(ctx context.Context, invocation runtimeport.ToolInvocation
 		}
 	}
 	timeout := time.Duration(t.definition.TimeoutMS) * time.Millisecond
-	result, err := t.program.Call(ctx, timeout, "execute", input, map[string]any{
-		"tool_name": invocation.Name,
-		"call_id":   invocation.CallID,
-	})
+	if timeout <= 0 {
+		timeout = jsruntime.DefaultTimeout
+	}
+	runCtx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+	capabilities := &capabilityContext{
+		ctx: runCtx,
+		definition: configView{
+			id:          t.definition.ID,
+			permissions: t.definition.Permissions,
+		},
+		invocation: invocationView{
+			name:   invocation.Name,
+			callID: invocation.CallID,
+		},
+		options: t.options,
+	}
+	result, err := t.program.Call(runCtx, timeout, "execute", input, capabilities.value())
 	if err != nil {
 		return nil, err
 	}

@@ -15,7 +15,7 @@ func TestDirectoryHelpersUseAppDir(t *testing.T) {
 	if Dir() != appDir {
 		t.Fatalf("Dir = %q, want %q", Dir(), appDir)
 	}
-	for _, got := range []string{SessionsDir(), WorkspaceDir(), SchedulerDir(), ShareDir(), RuntimeDir(), SkillsDir()} {
+	for _, got := range []string{SessionsDir(), WorkspaceDir(), SchedulerDir(), ShareDir(), RuntimeDir(), JavaScriptDir(), SkillsDir()} {
 		if !strings.HasPrefix(got, appDir+string(filepath.Separator)) {
 			t.Fatalf("derived dir %q should be under app dir %q", got, appDir)
 		}

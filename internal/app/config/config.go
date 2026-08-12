@@ -10,6 +10,7 @@ import (
 	"strings"
 	"sync"
 	"sync/atomic"
+	"unicode"
 
 	"fkteams/internal/app/appdata"
 	hookport "fkteams/internal/ports/hooks"
@@ -23,6 +24,8 @@ const maxConfigFileBytes = 8 << 20
 const (
 	maxJavaScriptItems       = 32
 	maxJavaScriptSourceBytes = 64 << 10
+	maxJavaScriptToolTimeout = 120_000
+	maxJavaScriptHookTimeout = 5_000
 )
 
 // ==================== 模型池 ====================
@@ -394,6 +397,7 @@ type JavaScriptTool struct {
 	Enabled     bool           `toml:"enabled" json:"enabled"`
 	TimeoutMS   int            `toml:"timeout_ms,omitempty" json:"timeout_ms,omitempty"`
 	ReadOnly    bool           `toml:"read_only" json:"read_only"`
+	Permissions []string       `toml:"permissions,omitempty" json:"permissions,omitempty"`
 	Parameters  map[string]any `toml:"parameters,omitempty" json:"parameters,omitempty"`
 	Source      string         `toml:"source" json:"source"`
 }
@@ -530,7 +534,7 @@ func (c *Config) ValidateJavaScript() error {
 	}
 	toolIDs := make(map[string]struct{}, len(c.JavaScript.Tools))
 	for _, item := range c.JavaScript.Tools {
-		if err := validateJavaScriptItem("javascript tool", item.ID, item.Name, item.Source, item.TimeoutMS); err != nil {
+		if err := validateJavaScriptItem("javascript tool", item.ID, item.Name, item.Source, item.TimeoutMS, maxJavaScriptToolTimeout); err != nil {
 			return err
 		}
 		if !validJavaScriptID(item.ID) {
@@ -542,6 +546,9 @@ func (c *Config) ValidateJavaScript() error {
 		if schemaType, _ := item.Parameters["type"].(string); len(item.Parameters) > 0 && schemaType != "object" {
 			return fmt.Errorf("javascript tool %s parameters root type must be object", item.ID)
 		}
+		if err := validateJavaScriptPermissions(item.ID, item.Permissions); err != nil {
+			return err
+		}
 		if _, exists := toolIDs[item.ID]; exists {
 			return fmt.Errorf("duplicate javascript tool id: %s", item.ID)
 		}
@@ -549,7 +556,7 @@ func (c *Config) ValidateJavaScript() error {
 	}
 	hookIDs := make(map[string]struct{}, len(c.JavaScript.Hooks))
 	for _, item := range c.JavaScript.Hooks {
-		if err := validateJavaScriptItem("javascript hook", item.ID, item.Name, item.Source, item.TimeoutMS); err != nil {
+		if err := validateJavaScriptItem("javascript hook", item.ID, item.Name, item.Source, item.TimeoutMS, maxJavaScriptHookTimeout); err != nil {
 			return err
 		}
 		if !validJavaScriptID(item.ID) {
@@ -574,6 +581,37 @@ func (c *Config) ValidateJavaScript() error {
 	return nil
 }
 
+func validateJavaScriptPermissions(id string, permissions []string) error {
+	if len(permissions) > 64 {
+		return fmt.Errorf("javascript tool %s permissions exceeds the limit of 64", id)
+	}
+	seen := make(map[string]struct{}, len(permissions))
+	for _, permission := range permissions {
+		if permission != "storage" && permission != "events:notice" && !validJavaScriptToolPermission(permission) {
+			return fmt.Errorf("javascript tool %s has invalid permission: %s", id, permission)
+		}
+		if _, exists := seen[permission]; exists {
+			return fmt.Errorf("javascript tool %s has duplicate permission: %s", id, permission)
+		}
+		seen[permission] = struct{}{}
+	}
+	return nil
+}
+
+func validJavaScriptToolPermission(permission string) bool {
+	target, ok := strings.CutPrefix(permission, "tools:")
+	if !ok || target == "" || target == "javascript" || strings.HasPrefix(target, "javascript/") || len(target) > 128 ||
+		strings.Count(target, "/") > 1 || strings.HasPrefix(target, "/") || strings.HasSuffix(target, "/") {
+		return false
+	}
+	for _, char := range target {
+		if unicode.IsSpace(char) || unicode.IsControl(char) || char == '\\' || char == ':' {
+			return false
+		}
+	}
+	return true
+}
+
 func validJavaScriptHookPoint(point string) bool {
 	switch hookport.HookPoint(point) {
 	case hookport.HookBeforeRun,
@@ -589,7 +627,7 @@ func validJavaScriptHookPoint(point string) bool {
 	}
 }
 
-func validateJavaScriptItem(kind, id, name, source string, timeoutMS int) error {
+func validateJavaScriptItem(kind, id, name, source string, timeoutMS, maxTimeoutMS int) error {
 	if strings.TrimSpace(id) == "" {
 		return fmt.Errorf("%s id is required", kind)
 	}
@@ -599,8 +637,8 @@ func validateJavaScriptItem(kind, id, name, source string, timeoutMS int) error 
 	if len(source) > maxJavaScriptSourceBytes {
 		return fmt.Errorf("%s %s source exceeds %d bytes", kind, id, maxJavaScriptSourceBytes)
 	}
-	if (timeoutMS != 0 && timeoutMS < 10) || timeoutMS > 5000 {
-		return fmt.Errorf("%s %s timeout_ms must be 0 or between 10 and 5000", kind, id)
+	if (timeoutMS != 0 && timeoutMS < 10) || timeoutMS > maxTimeoutMS {
+		return fmt.Errorf("%s %s timeout_ms must be 0 or between 10 and %d", kind, id, maxTimeoutMS)
 	}
 	return nil
 }
@@ -739,6 +777,7 @@ func cloneConfig(cfg *Config) *Config {
 	cloned.Tools.Approval.AutoApprove = append([]string(nil), cfg.Tools.Approval.AutoApprove...)
 	cloned.JavaScript.Tools = append([]JavaScriptTool(nil), cfg.JavaScript.Tools...)
 	for i := range cloned.JavaScript.Tools {
+		cloned.JavaScript.Tools[i].Permissions = append([]string(nil), cfg.JavaScript.Tools[i].Permissions...)
 		cloned.JavaScript.Tools[i].Parameters = cloneAnyMap(cfg.JavaScript.Tools[i].Parameters)
 	}
 	cloned.JavaScript.Hooks = append([]JavaScriptHook(nil), cfg.JavaScript.Hooks...)
@@ -1024,6 +1063,7 @@ func GenerateExample() error {
 					Enabled:     false,
 					TimeoutMS:   200,
 					ReadOnly:    true,
+					Permissions: []string{},
 					Parameters: map[string]any{
 						"type": "object",
 						"properties": map[string]any{

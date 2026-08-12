@@ -1,196 +1,153 @@
-# fkteams
+# fkteams 开发指南
 
-基于 CloudWeGo Eino ADK 的多智能体协作系统，支持 CLI、Web UI、纯 API 服务和消息通道（Discord/QQ/微信）多种交互方式。
+## 项目概览
 
-## 构建与运行
+fkteams 是基于 CloudWeGo Eino ADK 的 Go 多智能体协作系统，提供 CLI/TUI、Web UI、OpenAI 兼容 API，以及 Discord、QQ、微信消息通道。前端位于 `web/`，构建产物通过 `//go:embed` 嵌入 Go 二进制。
+
+本文件适用于整个仓库。若子目录以后增加更具体的 `AGENTS.md`，只写该子树的增量规则；冲突时以更具体的文件和用户当次指令为准。
+
+- Go 模块：`fkteams`，版本以 `go.mod` 为准。
+- 前端：React、TypeScript、Vite、Bun。
+- 默认应用目录：`~/.fkteams`；可通过 `FEIKONG_APP_DIR` 覆盖。
+- 完整架构说明见 `docs/architecture.md`；修改跨层依赖或运行链路前先阅读该文档。
+
+## 常用命令
 
 ```bash
-# 开发
-make web-build                          # 生成内嵌前端产物（web/dist 不提交）
-go build ./...                          # 编译检查（需先生成 web/dist）
-go vet ./...                            # 静态检查（需先生成 web/dist）
-go run ./cmd/fkteams                    # 启动 CLI 聊天
-go run ./cmd/fkteams web                # 启动 Web 服务（默认 :23456，需先生成 web/dist）
-go run ./cmd/fkteams serve              # 启动纯 API 服务
+# 完整质量检查（格式、前端类型检查与构建、Go vet/test、diff check）
+make check
 
-# 构建
-make native                             # 当前平台 -> release/fkteams_<goos>_<goarch>
-make all                                # 预设平台（darwin/arm64, windows/amd64, linux/amd64）
-make build t=linux:amd64                # 指定平台
-make clean                              # 清理 release/
+# 开发与定向验证
+make web-build
+go test ./path/to/package
+go test ./path/to/package -run TestName
+go build ./...
+go vet ./...
+
+# 运行
+go run ./cmd/fkteams
+go run ./cmd/fkteams web             # 默认监听 :23456
+go run ./cmd/fkteams serve
+
+# 前端
+cd web && bun run dev
+cd web && bun test src
+
+# 发布构建
+make native
+make all
+make build t=linux:amd64
+make clean
 
 # 生成配置示例
 go run ./cmd/fkteams generate config
 ```
 
-## 项目架构
+`go build ./...`、`go test ./...` 和 `go vet ./...` 依赖已生成的 `web/dist`；直接运行这些命令前先执行 `make web-build`，或使用已包含该步骤的 Make 目标。`web/dist/` 与 `release/` 是生成物，不提交。
 
-```
-cmd/fkteams/main.go         # 入口，调用 internal/adapters/transport/cli/commands.Root().Run()
-internal/app/               # 应用用例层，入口只调用这里
-  config/                   #   TOML 配置加载、保存、热重载和示例生成
-  version/                  #   应用版本和构建时间元数据
-  appdata/                  #   应用数据目录、workspace/session/share/runtime 路径
-  appstate/                 #   应用实例运行时状态（记忆服务 / 资源清理器）
-  chat/                     #   RunTurn / 输入构建 / 入口上下文装配
-    taskstream/             #   运行中任务事件流、队列、interrupt 状态管理
-  agent/                    #   Runner 工厂、团队组装和 mode/agentName 解析
-    catalog/                #   内置智能体定义、注册表、AgentBuilder 和成员工具元信息
-  tools/                    #   工具注册、解析、策略标记和运行时无关内置工具实现
-  memory/                   #   长期记忆检索、注入、提取、BM25 和 Markdown 持久化
-  schedule/                 #   定时任务用例入口、后台任务结果收集，工具/HTTP/CLI 只调用这里
-  skill/                    #   技能 provider、安装、移除、搜索结果和本地文件管理
-  lifecycle/                #   Application 生命周期编排内核
-                            #   用例层禁止依赖 agentcore 旧门面
-                            #   用例层禁止依赖 pterm 等终端展示库
-internal/domain/
-  memory/                   #   MemoryEntry / Message / MemoryType 等长期记忆值对象
-  schedule/                 #   Task / Status / HistoryEntry 等调度领域模型
-  session/                  #   会话 ID 与 context 绑定
-                            #   领域层禁止依赖框架/基础设施 SDK；稳定无状态小依赖可直接使用
-internal/runtime/           # 运行时无关内核
-  turn/                     #   回合执行内核、HITL handler、hooks/context 装配
-  events/                   #   事件分发、Emitter、协议校验、友好错误归一化
-  registry/                 #   runtime engine 注册表和默认 runtime 选择
-  model/                    #   运行时无关 ChatModel 工厂注册表
-  env/                      #   FEIKONG_* 环境变量读取
-  log/                      #   日志 facade 和文件轮转
-  atomicfile/               #   原子文件写入
-  pathguard/                #   工作区路径逃逸防护
-  typeutil/                 #   运行时类型名辅助
-  hooks/                    #   HookBus 实现、context 绑定和 hook 调用
-  checkpoint/               #   checkpoint 存储实现
-  mdiff/                    #   文件差异和补丁基础能力
-  resources/                #   运行期资源清理器
-  retry/                    #   模型重试和迭代限制策略
-                            #   运行时内核禁止依赖 agentcore 旧门面
-internal/ports/             # 运行时无关端口契约
-  hooks/                    #   HookPoint、HookHandler 和明确 payload 类型
-  memory/                   #   LLMClient 等长期记忆外部能力端口
-  runtime/                  #   Runtime / Engine / Runner / Model / Tool 等端口
-  scheduler/                #   Scheduler / TaskExecutor 调度端口
-  storage/                  #   SessionMessageReader 等存储读取端口
-  tools/                    #   MCPProvider 等工具外部能力端口
-internal/adapters/scheduler/
-  filecron/                 #   文件存储 + cron 轮询调度器
-internal/adapters/tools/
-  builtin/git/              #   go-git backed git_* 工具适配器
-  builtin/scheduler/        #   schedule_* 工具适配器，只委托 app/schedule
-  builtin/ssh/              #   SSH/SFTP backed ssh_* 工具适配器
-  mcp/                      #   MCP client、缓存和 runtime tool provider 桥接
-internal/adapters/transport/
-  cli/commands/             #   CLI 命令定义（urfave/cli/v3），参数解析和生命周期连接
-  http/                     #   Gin HTTP 服务、Router、Handler、Middleware 和 origin 策略
-  cli/runtime/              #   CLI 会话、输入、查询执行和交互运行时编排
-  cli/eventview/            #   CLI 事件渲染和 JSON 输出回调
-  cli/tui/                  #   CLI 终端 UI 组件、Markdown 渲染和交互控件
-  cli/report/               #   CLI Markdown 报告导出 HTML 适配器
-  cli/update/               #   CLI 自更新、下载、校验和替换适配器
-  channel/                  #   Discord / QQ / 微信消息通道适配器和 Bridge
-internal/adapters/runtime/
-  eino/                     # CloudWeGo Eino ADK 适配层，唯一允许 import Eino 的目录
-    runner.go               #   ADK AgentEvent -> events 协议转换，HITL resume 适配
-    engine/engine.go        #   runtime.Engine 的 Eino 实现
-                            #   adapter 与 middlewares 直接使用 internal/ports/runtime 与 domain 类型，禁止依赖 agentcore 旧门面
-    middlewares/            #   autocontinue / summary / skills / dispatch / inject / fkfs
-    middlewares/tools/      #   warperror / trimresult / patch / destructiveguard
-    providers/              #   OpenAI / DeepSeek / Claude / Ollama / Ark / Gemini / Qwen / OpenRouter / Copilot
-internal/adapters/model/
-  providers/                #   模型 provider 注册、检测、模型列表和 Copilot 支撑
-  memory/                   #   runtime ChatModel 到长期记忆 LLMClient 的适配
-    providerkit/            #   provider 共用 HTTP/config 辅助
-    copilot/                #   GitHub Copilot OAuth/token/HTTP 支撑
-internal/adapters/storage/
-  file/history/             #   append-only transcript、会话 metadata、历史投影和文件读写
-                            #   agentcore 旧门面已删除，禁止恢复；直接使用 internal/domain 与 internal/ports/runtime
-internal/bootstrap/environment/ # init 命令运行环境初始化器（uv / bun）
-internal/bootstrap/runtimes/ #  默认 runtime engine 和 provider 注册
-internal/bootstrap/tools/    #  adapter 工具组与 app 工具注册表连接
-internal/bootstrap/services/ #  组合层后台服务实现（memory / scheduler）
-web/                        # 内嵌前端（//go:embed）
+## 架构边界
+
+### 分层与依赖方向
+
+```text
+cmd -> bootstrap -> adapters -> app/runtime -> ports -> domain
 ```
 
-### 数据目录
+- `internal/domain` 只放领域模型和值对象，不依赖框架、SDK、`app`、`runtime` 或 `adapters`。
+- `internal/ports` 定义运行时无关契约，不依赖 `app`、`runtime` 或具体 adapter。
+- `internal/app` 实现用例，不导入具体 adapter、Eino 或终端展示库。
+- `internal/runtime` 提供运行时无关内核，不依赖 `app` 或具体 adapter。
+- `internal/adapters` 实现外部技术和传输协议；Eino 只能出现在 `internal/adapters/runtime/eino`。
+- `internal/bootstrap` 是组合根，负责创建并连接 runtime、模型、工具、存储和后台服务。
+- `cmd/fkteams/main.go` 保持最小化，只连接组合根和 CLI 命令入口。
 
-默认应用目录为 `~/.fkteams`，可用 `FEIKONG_APP_DIR` 覆盖。常用子目录：
+入口必须调用 `internal/app` 用例，不能在 CLI、HTTP 或消息通道中重新实现核心业务流程。注册表和运行态依赖必须由应用实例持有并显式注入；不要引入可变的进程级默认实例、依赖注册副作用的 `init()` 或空白 import。
 
-`{workspace,scheduler,sessions,history,config,log,share,runtime}`
+不要恢复已经移除的根级 `agentcore`、`events`、`server`、`cli`、`channels` 门面。对应实现分别位于 `internal/app`、`internal/runtime/events` 和 `internal/adapters/transport`。
 
-## 代码风格
+### 关键目录
 
-1. **错误信息英文，注释中文**（只在必要位置写精简注释）
-2. **禁止 emoji 图形字符**（文字符号如 ✓✗ 允许）
-3. **向 `strings.Builder` 写格式化内容用 `fmt.Fprintf(&sb, ...)`**，不用 `sb.WriteString(fmt.Sprintf(...))`
-4. **用 `any` 替代 `interface{}`**
-5. **工具函数不返回 error**：将错误信息放入响应的 `ErrorMessage` 字段并返回 nil
-6. **初始化函数必须返回 error**，不使用 `log.Fatal`
-7. **禁止事件类型的字符串字面量**：始终使用 `internal/domain/event` 中的类型常量
+- `cmd/fkteams/`：可执行入口。
+- `internal/app/`：chat、agent、tools、memory、schedule、skill、lifecycle 等用例。
+- `internal/domain/`：event、history、memory、message、schedule、session 等领域类型。
+- `internal/ports/`：hooks、memory、runtime、scheduler、storage、tools 契约。
+- `internal/runtime/`：turn、events、hooks、checkpoint、retry、pathguard 等内核能力。
+- `internal/adapters/`：模型、runtime、工具、存储、调度器和传输实现。
+- `internal/bootstrap/`：默认依赖与服务装配。
+- `web/`：React 前端；`web/dist/` 为生成物。
 
-## 验证与交付
+## Go 编码约定
 
-- 功能、重构或运行时行为改动优先执行 `make web-build` 后再执行 `go test ./...` 和 `go build ./...`；涉及静态风险时补充 `go vet ./...`。
-- 小范围改动可以先跑相关 package 的测试，但最终交付前要说明实际执行过的验证。
-- 文档、提示词或纯前端脚本改动至少执行 `git diff --check`；前端脚本改动优先补充 `node --check <file>`。
-- 功能变更必须同步更新 `README.md`，但 README 面向用户，避免暴露不必要的内部调度细节。
-- 提交信息遵循 Conventional Commits：`feat:`、`fix:`、`refactor:`、`chore:`、`docs:`、`test:` 等类型后接中文说明。
-- 验证失败、未运行或被环境阻塞时必须如实说明原因和剩余风险。
+- 内部 `error` 文本使用英文；面向用户的 UI 文案可以使用中文。
+- 注释使用中文。新增导出的类型、函数和方法应提供符合 Go Doc 的简洁注释；私有代码只在需要解释意图、约束或非显然行为时添加注释。
+- 使用 `any`，不要新增 `interface{}`。
+- 禁止 emoji 图形字符；`✓`、`✗` 等文字符号可以使用。
+- 向 `strings.Builder` 写格式化内容时使用 `fmt.Fprintf(&builder, ...)`，不要组合 `WriteString(fmt.Sprintf(...))`。
+- 可能失败的初始化必须返回 `error`，不得通过 `panic` 或 `log.Fatal` 终止进程；简单且不会失败的构造函数可以只返回实例。
+- 能编码进工具响应的业务错误或校验错误应写入响应的 `ErrorMessage` 并返回 `nil` error；框架初始化、工具构建和无法形成有效响应的故障仍正常返回 `error`。
+- 事件类型、动作类型和通知类型必须使用 `internal/domain/event` 中的常量，禁止散落字符串字面量。
+- 修改 Go 文件后运行 `gofmt`；不要手工维护与 `gofmt` 冲突的格式。
 
-## 开发约定
+## 子系统变更清单
 
 ### 智能体
 
-- 新智能体必须使用 `internal/app/agent/catalog/common/builder.go` 的 `AgentBuilder` 创建
-- 新智能体必须在 `internal/app/agent/catalog/registry.go` 的 `buildRegistry()` 中注册
-- 每个智能体目录包含 `agent.go`（`NewAgent()` 工厂）和 `prompt.go`（系统提示词模板）
+- 新内置智能体以 `common.Definition` 声明，通过 `common.BuildAgent()` 创建；参考 `internal/app/agent/catalog/common/definition.go`。
+- 在 `internal/app/agent/catalog/registry.go` 的 `builtinAgentSpecs()` 中声明元信息和默认 definition，最终由 `buildRegistry()` 生成目录。
+- 每个内置智能体目录保留 agent 定义/工厂与独立的系统提示词模板。
 
 ### 工具
 
-- 新工具组必须通过 `internal/app/tools.ToolGroupRegistry` 注册，禁止在 `internal/app/tools/tools.go` 中增加 switch 分支
-- 依赖具体存储、调度器或第三方 SDK 的工具实现属于 `internal/adapters/tools`，通过 `internal/bootstrap/tools` 连接到应用工具注册表；`internal/app/tools` 禁止反向 import adapter
-- go-git 具体实现只能放在 `internal/adapters/tools/builtin/git`；`internal/app/tools` 禁止 import `github.com/go-git/go-git`
-- SSH/SFTP 具体实现只能放在 `internal/adapters/tools/builtin/ssh`；`internal/app/tools` 禁止 import `github.com/pkg/sftp` 和 `golang.org/x/crypto/ssh`
-- MCP 动态工具只能通过 `internal/ports/tools.MCPProvider` 注入，禁止在 `internal/app/tools` 中直接 import `github.com/mark3labs/mcp-go`
-- 工具必须通过 `internal/app/tools/metadata.go` 的 `ClassifyTools()` 标记元数据（只读/破坏性）
+- 新工具组通过 `internal/app/tools.ToolGroupRegistry` 注册，不要在 `internal/app/tools/tools.go` 增加 switch 分支。
+- 依赖存储、调度器或第三方 SDK 的实现放在 `internal/adapters/tools`，通过 `internal/bootstrap/tools` 接入；`internal/app/tools` 不得反向导入 adapter。
+- go-git 实现只放在 `internal/adapters/tools/builtin/git`；SSH/SFTP 实现只放在 `internal/adapters/tools/builtin/ssh`。
+- MCP 动态工具通过 `internal/ports/tools.MCPProvider` 注入；`internal/app/tools` 不直接导入 `github.com/mark3labs/mcp-go`。
+- 工具列表使用 `internal/runtime/toolpolicy.ClassifyTools()` 标记只读、破坏性、审批等策略元数据。
 
-### 配置
+### 配置与模型
 
-- 新配置项必须添加到 `internal/app/config/config.go` 的 `GenerateExample()` 中生成示例
-- 配置通过 `config.Get()` 获取，使用 `atomic.Pointer` 实现热重载
+- 新配置项同步加入 `internal/app/config/config.go` 的 `GenerateExample()`；运行时配置通过 `config.Get()` 读取，保留 `atomic.Pointer` 热重载机制。
+- 新模型提供者通过 `internal/adapters/model/providers` 的实例级工厂注册，并实现模型创建与列表查询。
 
-### 生命周期
+### 生命周期与后台服务
 
-- 新的后台服务实现 `internal/app/lifecycle.Service` 接口（`Name() / Start() / Stop()`），具体组合层服务放在 `internal/bootstrap/services`
-- 服务按注册顺序启动，逆序（LIFO）停止
+- 新后台服务实现 `internal/app/lifecycle.Service` 的 `Name`、`Start`、`Stop`；具体组合层服务放在 `internal/bootstrap/services`。
+- 服务按注册顺序启动，按逆序（LIFO）停止。
+- `Session.OnInterrupt` 未设置时必须保持固定拒绝的安全默认值。
 
-### 事件
+### 事件、Hooks 与流式任务
 
-- 事件处理使用 `internal/domain/event` 中的类型常量，禁止使用字符串字面量
-- 新增事件类型/动作类型/通知类型必须先在 `internal/domain/event` 中定义常量
-- 发事件必须使用 `internal/runtime/events`；禁止恢复根 `events` 门面
-- HTTP handler、middleware、router 和 origin 策略位于 `internal/adapters/transport/http`，禁止恢复根 `server` 包
-- 运行时适配器发事件优先使用 `internal/runtime/events.Emitter` 和 `AgentStart` / `MessageDelta` / `ToolStart` 等构造函数
-- CLI 会话、查询执行和交互运行时位于 `internal/adapters/transport/cli/runtime`，禁止恢复根 `cli` 包
-- 流式事件的规范增量载荷使用 `Content`；不要在核心事件或历史存储中重复维护 `Delta`
-- 工具调用事件必须通过 `tool_call_ref` 保持 `message_delta(tool_args)`、`message_end.tool_calls[]`、`tool_start/update/end` 的稳定关联
-- WebSocket `steer`、`/stream/steer` 和终端运行中 Enter 必须进入 steering 通道，由 `SteeringSource` 在下一次模型调用前消费；运行中的普通 `chat`/`follow_up` 只作为后续任务排队
-- 流式任务队列项必须带稳定 `queue_id`；Web/SSE/WS 通过 `queue_updated` 同步快照。队列管理只能修改尚未消费的项，Web 运行中输入默认追加 follow-up，并支持在队列面板中转换 steering/follow-up、编辑、删除、同类排序；终端运行中只追加 steering，消费时合并当前队列，`Esc` 暂停时将未消费 steering 回填到输入框
+- 发事件使用 `internal/runtime/events` 的 `Emitter` 和事件构造函数；新增事件、动作或通知前先在 `internal/domain/event` 定义常量。
+- 规范流式增量只使用 `Content`，不要在核心事件或历史存储中重新维护 `Delta`。
+- 工具调用链通过稳定的 `tool_call_ref` 关联 `message_delta(tool_args)`、`message_end.tool_calls[]` 与 `tool_start/update/end`。
+- Hook payload 在 `internal/ports/hooks` 定义为实现 `hooks.Payload` 的明确结构体；不要以 `any` 作为 `Invocation` 或 `Result` 的 payload 契约。新增 hook point 时同步增加便捷调用函数和架构边界测试。
+- WebSocket `steer`、`/stream/steer` 和终端运行中 Enter 进入 steering 通道，由 `SteeringSource` 在下一次模型调用前消费；运行中的普通 `chat`/`follow_up` 只追加后续任务。
+- 流式队列项必须有稳定 `queue_id`，并通过 `queue_updated` 向 Web/SSE/WS 同步。只能编辑、删除或排序尚未消费的项；终端暂停时将未消费 steering 回填输入框。
 
-### Hooks
+### 传输与消息通道
 
-- Hook payload 必须在 `internal/ports/hooks` 中定义为明确结构体并实现 `hooks.Payload`，禁止在 `Invocation` / `Result` 中使用 `any` 作为 payload 契约
-- 新增 hook point 必须补充 payload 结构、便捷调用函数和架构边界测试
+- HTTP handler、middleware、router 和 origin 策略位于 `internal/adapters/transport/http`；CLI 会话和查询执行位于 `internal/adapters/transport/cli/runtime`。
+- 消息通道 adapter 导出接收 `*channel.FactoryRegistry` 的 `Register()`，由 `internal/bootstrap/channels.RegisterDefaults()` 显式装配，并通过 `channel.Bridge` 路由到应用用例。
 
-### 通道
+## 安全约束
 
-- 通道实现必须通过 `internal/adapters/transport/channel.RegisterFactory` 注册工厂
-- 通道消息处理通过 `internal/adapters/transport/channel.Bridge` 桥接器路由到应用用例
-- 禁止恢复根 `channels` 包；Discord/QQ/微信实现属于 `internal/adapters/transport/channel`
+- 不得绕过或弱化 workspace 路径限制、符号链接检查、危险命令检测、工具权限元数据和 HITL 审批。
+- 不在日志、错误、测试夹具或文档中写入 API key、token、密码、会话凭据等秘密。
+- 修改文件、Git、SSH、命令执行、MCP 或上传下载路径时，补充路径逃逸、拒绝策略或权限边界测试。
+- 破坏性操作必须保持显式授权；后台和非交互场景默认拒绝高风险操作。
 
-### 模型提供者
+## 验证与交付
 
-- 新模型提供者通过 `internal/adapters/model/providers/providers.go` 的工厂模式注册
-- 提供商需实现模型创建和列表获取
+按改动风险选择验证，不要为了机械满足清单而运行无关命令：
 
-### 其他
+- 文档、注释或提示词：至少运行 `make diff-check`。
+- 单一 Go package 的局部改动：先运行该 package 测试；交付前补充 `go build ./...`，必要时运行 `go vet ./...`。
+- 功能、跨包重构、架构边界或运行时行为改动：运行 `make check`。
+- 前端改动：运行相关 `bun test`、`make web-typecheck` 和 `make web-build`；涉及 Go 嵌入或端到端行为时再运行 `make check`。
+- 安全边界、并发、生命周期、持久化或协议改动必须增加或更新对应测试。
 
-- `Session.OnInterrupt` 未设置时自动使用固定拒绝决策
+如果完整验证受环境限制，运行仍可执行的最小相关检查，并在交付说明中列出未运行项、阻塞原因和剩余风险。不要掩盖失败，也不要把既有无关失败描述成当前改动已通过。
+
+`README.md` 只维护面向新用户的稳定概览。新增或移除主要入口、核心能力，或安装与快速开始方式发生变化时才更新 README；局部功能、兼容性修复、内部重构和实现细节无需修改。面向用户的详细行为变化按需更新相应 `docs/` 专题文档，架构边界变化更新 `docs/architecture.md`。
+
+提交信息遵循 Conventional Commits，使用 `feat:`、`fix:`、`refactor:`、`chore:`、`docs:`、`test:` 等类型加中文说明。除非用户明确要求，不要自行创建提交、推送或 PR。

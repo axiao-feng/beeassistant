@@ -88,6 +88,9 @@ func registerAPIRoutesWithRuntime(r *gin.Engine, _ bool, state *appstate.State, 
 			ai.POST("/text/rewrite", standardJSONBody, runtime.RewriteTextHandler())
 		}
 
+		// JavaScript 扩展 API
+		apiV1.POST("/javascript/test", standardJSONBody, runtime.TestJavaScriptToolHandler(state))
+
 		// 聊天 API
 		apiV1.POST("/chat", chatBody, runtime.ChatHandlerWithState(state))
 

@@ -281,8 +281,12 @@ func RegisterDefaults(mcpProvider toolport.MCPProvider) (*apptools.ToolGroupRegi
 				Category:    "扩展",
 				Builtin:     false,
 			},
-			Factory: func(apptools.ToolResolveContext) ([]runtimeport.Tool, error) {
-				definitions := config.Get().JavaScript.Tools
+			Factory: func(ctx apptools.ToolResolveContext) ([]runtimeport.Tool, error) {
+				current := config.Get()
+				if override, ok := ctx.Config.(*config.Config); ok && override != nil {
+					current = override
+				}
+				definitions := current.JavaScript.Tools
 				result := make([]runtimeport.Tool, 0, len(definitions))
 				for _, definition := range definitions {
 					if !definition.Enabled {

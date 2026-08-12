@@ -11,6 +11,7 @@ import {
   Layers,
   ListPlus,
   MessageSquare,
+  Play,
   Plus,
   RefreshCcw,
   Save,
@@ -23,6 +24,7 @@ import {
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { generateAgentDrafts, generateJavaScriptDraft, rewriteText } from "@/api/ai";
+import { testJavaScriptTool } from "@/api/javascript";
 import { isAbortError } from "@/api/client";
 import { getConfig, getToolCatalog, saveConfig } from "@/api/config";
 import { listProviderModels } from "@/api/providers";
@@ -1337,6 +1339,41 @@ function JavaScriptToolEditor({
   onAI: () => void;
 }) {
   const update = (patch: Partial<JavaScriptToolConfig>) => onChange({ ...tool, ...patch });
+  const [testInput, setTestInput] = useState("{}");
+  const [testResult, setTestResult] = useState("");
+  const [testNotices, setTestNotices] = useState<Array<{ level: string; message: string }>>([]);
+  const [testError, setTestError] = useState("");
+  const [testing, setTesting] = useState(false);
+  const [testRan, setTestRan] = useState(false);
+
+  async function runTest() {
+    if (testing) return;
+    setTestError("");
+    let input: Record<string, unknown>;
+    try {
+      const parsed = JSON.parse(testInput) as unknown;
+      if (!parsed || Array.isArray(parsed) || typeof parsed !== "object") throw new Error("测试输入必须是 JSON 对象");
+      input = parsed as Record<string, unknown>;
+    } catch (error) {
+      setTestError(error instanceof Error ? error.message : String(error));
+      return;
+    }
+    setTesting(true);
+    setTestRan(false);
+    try {
+      const response = await testJavaScriptTool(tool, input);
+      setTestResult(response.raw);
+      setTestNotices(response.notices || []);
+      setTestRan(true);
+    } catch (error) {
+      setTestResult("");
+      setTestNotices([]);
+      setTestError(error instanceof Error ? error.message : String(error));
+    } finally {
+      setTesting(false);
+    }
+  }
+
   return (
     <ConfigCard title={tool.name || tool.id || "JavaScript 工具"} aside={tool.id} onRemove={onRemove}>
       <div className="flex justify-end">
@@ -1359,6 +1396,27 @@ function JavaScriptToolEditor({
       <JSONSchemaField value={tool.parameters} onChange={(parameters) => update({ parameters })} />
       <Field label="工具源码（必须定义 execute(input, context)）">
         <Textarea className="min-h-64 font-mono text-xs leading-5" value={tool.source || ""} spellCheck={false} onChange={(event) => update({ source: event.target.value })} />
+      </Field>
+      <Field
+        label="试运行输入"
+        action={
+          <Button size="sm" variant="outline" disabled={testing} onClick={() => void runTest()}>
+            <Play className="h-3.5 w-3.5" />
+            {testing ? "执行中" : "试运行"}
+          </Button>
+        }
+      >
+        <Textarea className="min-h-28 font-mono text-xs leading-5" value={testInput} spellCheck={false} onChange={(event) => setTestInput(event.target.value)} />
+        <div className="text-xs leading-5 text-amber-700">试运行会真实调用已授权能力并可能产生副作用；工具审批和工作区边界仍然生效。</div>
+        {testError ? <div className="rounded-lg border border-destructive/40 bg-destructive/5 px-3 py-2 text-xs text-destructive">{testError}</div> : null}
+        {testRan ? <Textarea className="min-h-28 font-mono text-xs leading-5" value={testResult} placeholder="脚本返回空结果" readOnly /> : null}
+        {testNotices.length > 0 ? (
+          <div className="space-y-1 rounded-lg border border-border/70 bg-card/45 px-3 py-2">
+            {testNotices.map((notice, index) => (
+              <div key={`${notice.level}-${index}`} className="text-xs"><Badge>{notice.level}</Badge> <span className="ml-1">{notice.message}</span></div>
+            ))}
+          </div>
+        ) : null}
       </Field>
     </ConfigCard>
   );

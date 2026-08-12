@@ -5,7 +5,9 @@ import (
 	"testing"
 
 	mcpadapter "fkteams/internal/adapters/tools/mcp"
+	"fkteams/internal/app/config"
 	apptools "fkteams/internal/app/tools"
+	runtimeport "fkteams/internal/ports/runtime"
 )
 
 func TestBootstrapRegistersSchedulerToolGroup(t *testing.T) {
@@ -84,6 +86,32 @@ func TestBootstrapRegistersJavaScriptToolGroup(t *testing.T) {
 	}
 	if _, ok, err := registry.Resolve(context.Background(), "javascript", nil); err != nil || !ok {
 		t.Fatalf("Resolve(javascript) = ok %v, error %v", ok, err)
+	}
+}
+
+func TestJavaScriptToolGroupUsesResolveContextConfig(t *testing.T) {
+	registry, err := RegisterDefaults(mcpadapter.NewProvider())
+	if err != nil {
+		t.Fatalf("RegisterDefaults() error = %v", err)
+	}
+	cfg := &config.Config{JavaScript: config.JavaScriptSettings{Tools: []config.JavaScriptTool{{
+		ID: "preview", Name: "预览", Description: "测试配置覆盖", Enabled: true,
+		Source: `function execute(input) { return input; }`,
+	}}}}
+	ctx := apptools.WithResolveContextPatch(context.Background(), apptools.ToolResolveContext{Config: cfg})
+	resolved, err := registry.GetToolsByName(ctx, "javascript")
+	if err != nil {
+		t.Fatalf("GetToolsByName() error = %v", err)
+	}
+	if len(resolved) != 1 {
+		t.Fatalf("tool count = %d, want 1", len(resolved))
+	}
+	result, err := resolved[0].Invoke(ctx, runtimeport.ToolInvocation{Name: "preview", Arguments: `{"value":1}`})
+	if err != nil {
+		t.Fatalf("Invoke() error = %v", err)
+	}
+	if result.Content != `{"value":1}` {
+		t.Fatalf("Invoke() content = %s", result.Content)
 	}
 }
 

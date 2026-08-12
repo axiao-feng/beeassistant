@@ -69,6 +69,8 @@ fkteams web
 
 CLI 也支持直接查询、管道输入、恢复会话和调用指定智能体。完整命令见[使用指南](./docs/usage.md)，接口定义见 [API 文档](./docs/api/README.md)。
 
+对安装、配置、Skills、MCP、自定义智能体、自定义工具或流程 Hooks 有疑问时，可以直接选择内置的“非空小助手”；团队模式下协调者也会把 fkteams 项目问题交给它处理。
+
 ## 扩展能力
 
 - 使用 [Skills](./docs/skills.md) 为智能体提供可复用的领域知识和工作流程。

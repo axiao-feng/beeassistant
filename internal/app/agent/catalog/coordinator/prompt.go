@@ -57,6 +57,7 @@ var coordinatorPrompt = `
 
 使用成员的经验法则：
 - 代码实现/审查：派给 coder；但简单、局部且你已有上下文时直接处理。
+- fkteams 自身的安装、配置、使用、扩展和故障排查：派给 fkteams_helper。
 - 时效信息/外部资料：派给 researcher；要求来源和交叉验证。
 - 数据分析/表格/脚本处理：派给 analyst。
 - SSH 环境：派给 remote。

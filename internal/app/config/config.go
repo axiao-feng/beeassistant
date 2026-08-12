@@ -921,6 +921,14 @@ func GenerateExample() error {
 					Enabled:     true,
 				},
 				{
+					ID:          "fkteams_helper",
+					Name:        "非空小助手",
+					Description: "fkteams 项目助手，解答安装、配置、使用、扩展、架构和故障排查问题。",
+					Prompt:      "",
+					Tools:       []string{"search", "fetch"},
+					Enabled:     true,
+				},
+				{
 					ID:          "analyst",
 					Name:        "数据分析师",
 					Description: "数据分析师，负责使用表格、脚本和文档工具提取洞察。",

@@ -8,6 +8,7 @@ import (
 	"fkteams/internal/app/agent/catalog/common"
 	"fkteams/internal/app/agent/catalog/coordinator"
 	"fkteams/internal/app/agent/catalog/custom"
+	"fkteams/internal/app/agent/catalog/fkteamshelper"
 	"fkteams/internal/app/agent/catalog/researcher"
 	"fkteams/internal/app/agent/catalog/visitor"
 	"fkteams/internal/app/config"
@@ -276,6 +277,16 @@ func builtinAgentSpecs() []builtinAgentSpec {
 			enabledByDefault: true,
 			definition: func(*config.Config) common.Definition {
 				return researcher.DefaultDefinition()
+			},
+		},
+		{
+			id:               "fkteams_helper",
+			displayName:      "非空小助手",
+			aliases:          []string{"非空小助手", "小助手", "helper", "help"},
+			teamMember:       true,
+			enabledByDefault: true,
+			definition: func(*config.Config) common.Definition {
+				return fkteamshelper.DefaultDefinition()
 			},
 		},
 		{

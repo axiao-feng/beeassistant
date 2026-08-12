@@ -164,6 +164,31 @@ func TestConfigItemsIgnoreBuiltinOverrides(t *testing.T) {
 	}
 }
 
+func TestConfigItemsIncludeEnabledProjectHelper(t *testing.T) {
+	items := ConfigItems(&config.Config{})
+	var helper *config.AgentConfig
+	for i := range items {
+		if items[i].ID == "fkteams_helper" {
+			helper = &items[i]
+			break
+		}
+	}
+	if helper == nil {
+		t.Fatal("fkteams_helper not found")
+	}
+	if !helper.Builtin || !helper.TeamMember || !helper.Enabled || helper.Name != "非空小助手" {
+		t.Fatalf("fkteams_helper = %#v", helper)
+	}
+	if !IsBuiltinAgentID("fkteams_helper") {
+		t.Fatal("fkteams_helper should be a builtin agent")
+	}
+	info := agentInfoFromConfig(&config.Config{}, *helper)
+	registry := newTestRegistry([]AgentInfo{info})
+	if got := registry.AgentByName("小助手"); got == nil || got.Name != "fkteams_helper" {
+		t.Fatalf("AgentByName(小助手) = %#v", got)
+	}
+}
+
 func newTestRegistry(values []AgentInfo) *Registry {
 	return &Registry{loaded: true, agents: values}
 }

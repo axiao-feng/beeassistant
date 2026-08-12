@@ -347,6 +347,7 @@ function normalizeShareAgentKey(value: string) {
 const shareRuntimeAgents: Record<string, ShareAgentInfo> = {
   coordinator: { displayName: "协调者", builtin: true },
   deep_researcher: { displayName: "深度研究员", builtin: true },
+  fkteams_helper: { displayName: "非空小助手", builtin: true },
 };
 
 function ShareMessageActions({ content }: { content: string }) {

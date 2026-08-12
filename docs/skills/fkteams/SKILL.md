@@ -2,7 +2,7 @@
 name: fkteams
 description: >
   fkteams 多智能体协作 AI 助手的完整使用指南。当用户需要启动 fkteams、切换工作模式（团队/深度/讨论/自定义）、
-  通过命令行或管道执行查询、管理单个智能体（coder/researcher/analyst/remote/generalist）、管理会话历史（保存/加载/导出/恢复）、
+  通过命令行或管道执行查询、管理单个智能体（coder/researcher/fkteams_helper/analyst/remote/generalist）、管理会话历史（保存/加载/导出/恢复）、
   管理模型配置（添加/切换/删除/登录服务商）、管理本地技能（列出/搜索/安装/移除）、初始化或修改配置文件，
   以及了解 fkteams 的任意命令行用法时，请使用此 skill。
 compatibility: 需要 fkteams 二进制文件，首次使用前需运行 fkteams generate config 生成配置文件。
@@ -142,6 +142,7 @@ fkteams -r "20260302_091249" -q "继续上次的分析"  # 恢复后直接查询
 | `coordinator` | `[[agents.items]] id = "coordinator"` | 协调者 |
 | `coder` | `[[agents.items]] id = "coder"` | 软件工程师，代码实现、调试、重构 |
 | `researcher` | `[[agents.items]] id = "researcher"` | DuckDuckGo 网络搜索 |
+| `fkteams_helper` | `[[agents.items]] id = "fkteams_helper"` | fkteams 安装、配置、扩展与故障排查答疑 |
 | `analyst` | `[[agents.items]] id = "analyst"` | 数据分析（Excel、Python、文档） |
 | `remote` | `[[agents.items]] id = "remote"` + `ssh = { ... }` | SSH 远程服务器访问 |
 | `generalist` | `[[agents.items]] id = "generalist"` | 通用执行助手，支持多工具任务 |
@@ -159,6 +160,7 @@ fkteams agent --name analyst
 # 直接查询（一次性，执行后退出）
 fkteams agent -n researcher -q "搜索最新的 Go 语言新闻"
 fkteams agent -n coder -q "解释这个函数的作用"
+fkteams agent -n fkteams_helper -q "如何配置 MCP？"
 
 # 配合管道
 cat error.log | fkteams agent -n coder -q "分析这个错误日志"

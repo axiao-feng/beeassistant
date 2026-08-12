@@ -209,6 +209,9 @@ list_agents
 
 # 切换到 researcher 并搜索信息
 @researcher 查找最新的 Go 语言教程
+
+# 向非空小助手咨询项目配置
+@fkteams_helper 如何配置一个 stdio MCP 服务？
 ```
 
 **可用智能体列表**：
@@ -218,6 +221,7 @@ list_agents
 - `@coordinator` - 协调者，直接处理常规任务并按需调度成员
 - `@coder` - 软件工程师，代码实现、调试、重构和验证
 - `@researcher` - 网络研究员，擅长检索、抓取和交叉验证时效信息
+- `@fkteams_helper` - 非空小助手，解答 fkteams 安装、配置、使用、扩展和故障排查问题
 - `@analyst` - 数据分析师，擅长使用 Excel、Python 脚本和文档处理工具
 - `@remote` - 远程运维专家，擅长通过 SSH 连接远程服务器
 - `@generalist` - 通用执行助手，综合命令、文件、搜索等工具完成任务
@@ -373,6 +377,9 @@ curl -s https://example.com/api | ./fkteams -q "解析这个 API 响应"
 
 # 直接查询（默认保存历史）
 ./fkteams agent --name researcher --query "搜索最新的 Go 语言新闻"
+
+# 查询 fkteams 的使用和扩展方式
+./fkteams agent -n fkteams_helper -q "如何创建自定义工具和流程 Hook？"
 
 # JSON 格式输出原始事件
 ./fkteams agent -n researcher -q "搜索最新的 Go 语言新闻" --format json

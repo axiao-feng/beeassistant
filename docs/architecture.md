@@ -107,6 +107,7 @@ internal/adapters/           # 具体技术实现和协议转换
   transport/                 # CLI、HTTP、消息通道传输层
 
 internal/bootstrap/          # 组合根
+  composition.go             # 入口共享的执行依赖创建与 context 装配
   channels/
   environment/
   runtimes/
@@ -358,6 +359,7 @@ Hook point 包括：
 
 组合根职责：
 
+- 通过实例级 `ExecutionDependencies` 统一装配入口共享的执行依赖。
 - 创建 runtime adapter。
 - 创建模型注册表和 provider。
 - 创建工具注册表并注入 `ToolResolveContext`。

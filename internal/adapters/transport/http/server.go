@@ -187,7 +187,7 @@ func (s *httpService) Addr() string {
 	return ""
 }
 
-// ServeOptions serve 命令的配置选项
+// ServeOptions 描述 HTTP 服务的监听选项。
 type ServeOptions struct {
 	Host string
 	Port int
@@ -297,7 +297,12 @@ func Run() error {
 
 // RunContext 使用显式 context 启动 Web 服务器模式。
 func RunContext(ctx context.Context) error {
-	return run(ctx, ModeWeb, nil)
+	return RunWebContext(ctx, ServeOptions{})
+}
+
+// RunWebContext 使用显式 context 和监听选项启动 Web 服务器模式。
+func RunWebContext(ctx context.Context, opts ServeOptions) error {
+	return run(ctx, ModeWeb, &opts)
 }
 
 // RunServe 启动纯 API 服务（无 Web 界面）

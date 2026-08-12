@@ -18,4 +18,6 @@ services:
       - ./data/scheduler:/app/scheduler
       - ./data/history:/app/history
       - ./data/sessions:/app/sessions
+      - ./data/share:/app/share
+      - ./data/skills:/app/skills
       - ./data/log:/app/log

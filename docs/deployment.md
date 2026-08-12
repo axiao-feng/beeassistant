@@ -101,6 +101,8 @@ docker compose up -d
 
 访问 http://localhost:23456 即可使用。
 
+Docker 镜像默认使用 `web --host 0.0.0.0` 启动；本机直接运行 `fkteams web` 时仍保留配置文件中的监听地址。
+
 ### 使用 docker run
 
 ```bash
@@ -118,6 +120,7 @@ docker run -d \
   -v ./data/history:/app/history \
   -v ./data/sessions:/app/sessions \
   -v ./data/share:/app/share \
+  -v ./data/skills:/app/skills \
   -v ./data/log:/app/log \
   fkteams
 ```
@@ -127,4 +130,4 @@ docker run -d \
 - 环境变量通过 `docker-compose.yml` 的 `environment` 或 `docker run -e` 传入，无需 `.env` 文件
 - **`FEIKONG_APP_DIR=/app`**：将应用数据目录设置为容器内的 `/app`，与 volume 挂载路径对应
 - `config/config.toml` 通过 volume 挂载，可在容器外编辑
-- 数据目录（workspace、scheduler、history、sessions、share 等）建议挂载到宿主机以持久化
+- 数据目录（workspace、scheduler、history、sessions、share、skills 等）建议挂载到宿主机以持久化

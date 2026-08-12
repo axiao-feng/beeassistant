@@ -44,6 +44,8 @@ func TestSubCommandStructure(t *testing.T) {
 		children []string
 		flags    []string
 	}{
+		{name: "web", command: webCommand(), flags: []string{"host", "port"}},
+		{name: "serve", command: serveCommand(), flags: []string{"host", "port"}},
 		{name: "generate", command: generateCommand(), children: []string{"config", "apikey"}},
 		{name: "model", command: modelCommand(), children: []string{"ls", "lr", "sw", "rm"}},
 		{name: "session", command: sessionCommand(), children: []string{"list"}},

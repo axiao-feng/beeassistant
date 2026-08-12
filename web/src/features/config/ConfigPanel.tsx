@@ -39,6 +39,7 @@ import { ConfirmDialog } from "@/components/ui/action-dialog";
 import { LoadingSurface } from "@/components/ui/loading-surface";
 import { Panel, PanelBody, PanelHeader } from "@/components/ui/panel";
 import { cn } from "@/lib/cn";
+import { isMCPToolGroup, splitToolCatalog } from "@/features/config/toolCatalog";
 import type {
   AppConfig,
   AgentConfig,
@@ -67,7 +68,7 @@ const tabs: Array<{ key: ConfigTab; label: string; icon: typeof Bot }> = [
   { key: "channels", label: "通道", icon: MessageSquare },
   { key: "permissions", label: "权限", icon: KeyRound },
   { key: "tools", label: "工具", icon: Wrench },
-  { key: "javascript", label: "脚本", icon: FileCode2 },
+  { key: "javascript", label: "扩展", icon: FileCode2 },
   { key: "other", label: "其他", icon: Cable },
 ];
 
@@ -1064,8 +1065,7 @@ function PermissionsTab({ draft, updateDraft, autoSaveDraft, saving }: EditorPro
 
 function ToolsTab({ draft, updateDraft }: EditorProps) {
   const tools = useAppSelector((state) => state.config.tools);
-  const builtinTools = tools.filter((tool) => tool.builtin !== false);
-  const mcpTools = tools.filter((tool) => tool.builtin === false);
+  const { builtin: builtinTools, custom: customTools, mcp: mcpTools } = splitToolCatalog(tools);
   const mcpServers = draft.tools?.mcp_servers || [];
   return (
     <div className="space-y-4">
@@ -1079,8 +1079,20 @@ function ToolsTab({ draft, updateDraft }: EditorProps) {
           ))}
         </PanelBody>
       </Panel>
+      {customTools.length ? (
+        <Panel>
+          <PanelHeader>
+            <SectionTitle icon={FileCode2} title="自定义工具" description={`${customTools.length} 个用户创建的工具组，可在“扩展”页中编辑。`} />
+          </PanelHeader>
+          <PanelBody className="grid gap-3 xl:grid-cols-2">
+            {customTools.map((tool) => (
+              <ToolInfoCard key={tool.name} tool={tool} />
+            ))}
+          </PanelBody>
+        </Panel>
+      ) : null}
       <Panel>
-        <SectionHeader icon={Cable} title="MCP 工具" description="配置 HTTP 或 stdio MCP 服务，启用后可在智能体工具中选择。">
+        <SectionHeader icon={Cable} title="MCP 服务" description="连接 HTTP 或 stdio MCP 服务，启用后可在智能体工具中选择其能力。">
           <Button
             className="w-full sm:w-auto"
             variant="outline"
@@ -1098,7 +1110,7 @@ function ToolsTab({ draft, updateDraft }: EditorProps) {
             }
           >
             <Plus className="h-4 w-4" />
-            添加 MCP
+            添加 MCP 服务
           </Button>
         </SectionHeader>
         <PanelBody className="grid gap-4 xl:grid-cols-2">
@@ -1113,7 +1125,7 @@ function ToolsTab({ draft, updateDraft }: EditorProps) {
       {mcpTools.length ? (
         <Panel>
           <PanelHeader>
-            <SectionTitle icon={Cable} title="已加载 MCP 工具" description={`${mcpTools.length} 个来自已启用 MCP 服务的工具组。`} />
+            <SectionTitle icon={Cable} title="已连接的 MCP 工具" description={`${mcpTools.length} 个来自已启用 MCP 服务的工具组。`} />
           </PanelHeader>
           <PanelBody className="grid gap-3 xl:grid-cols-2">
             {mcpTools.map((tool) => (
@@ -1159,12 +1171,39 @@ const hookPointOptions = [
   "after_model_response",
 ];
 
+const hookPointLabels: Record<string, string> = {
+  before_run: "任务开始前",
+  after_run: "任务结束后",
+  on_event: "事件发送时",
+  before_tool_call: "工具调用前",
+  after_tool_call: "工具调用后",
+  before_model_request: "模型请求前",
+  after_model_response: "模型响应后",
+};
+
+function toolParameterCount(tool: JavaScriptToolConfig) {
+  const properties = tool.parameters?.properties;
+  if (!properties || typeof properties !== "object" || Array.isArray(properties)) return 0;
+  return Object.keys(properties).length;
+}
+
+function flowRuleSummary(points: string[]) {
+  if (!points.length) return "尚未选择触发环节";
+  return points.map((point) => hookPointLabels[point] || point).join("、");
+}
+
+function errorPolicyLabel(policy: string) {
+  return ({ fail: "中止任务", warn: "记录警告", ignore: "忽略错误" } as Record<string, string>)[policy] || policy;
+}
+
 type JavaScriptDialogState = { kind: "tool" | "hook"; index?: number };
 
 function JavaScriptTab({ draft, updateDraft, toolCatalog }: EditorProps & { toolCatalog: ToolInfo[] }) {
   const tools = draft.javascript?.tools || [];
   const hooks = draft.javascript?.hooks || [];
   const [dialog, setDialog] = useState<JavaScriptDialogState | null>(null);
+  const [expandedToolIndex, setExpandedToolIndex] = useState<number | null>(null);
+  const [expandedHookIndex, setExpandedHookIndex] = useState<number | null>(null);
 
   function addTool() {
     updateDraft((next) => {
@@ -1187,6 +1226,7 @@ function JavaScriptTab({ draft, updateDraft, toolCatalog }: EditorProps & { tool
         ],
       };
     });
+    setExpandedToolIndex(tools.length);
   }
 
   function addHook() {
@@ -1198,7 +1238,7 @@ function JavaScriptTab({ draft, updateDraft, toolCatalog }: EditorProps & { tool
           ...items,
           {
             id: uniqueJavaScriptID(items.map((item) => item.id), "custom_hook"),
-            name: "自定义 Hook",
+            name: "自定义流程规则",
             enabled: false,
             hook_points: ["before_tool_call"],
             timeout_ms: 200,
@@ -1209,10 +1249,12 @@ function JavaScriptTab({ draft, updateDraft, toolCatalog }: EditorProps & { tool
         ],
       };
     });
+    setExpandedHookIndex(hooks.length);
   }
 
   function applyAIDraft(value: JavaScriptToolConfig | JavaScriptHookConfig) {
     if (!dialog) return;
+    const targetIndex = dialog.index ?? (dialog.kind === "tool" ? tools.length : hooks.length);
     updateDraft((next) => {
       if (dialog.kind === "tool") {
         const items = [...(next.javascript?.tools || [])];
@@ -1226,6 +1268,8 @@ function JavaScriptTab({ draft, updateDraft, toolCatalog }: EditorProps & { tool
       else items[dialog.index] = value as JavaScriptHookConfig;
       next.javascript = { ...(next.javascript || {}), hooks: items };
     });
+    if (dialog.kind === "tool") setExpandedToolIndex(targetIndex);
+    else setExpandedHookIndex(targetIndex);
     setDialog(null);
   }
 
@@ -1238,11 +1282,11 @@ function JavaScriptTab({ draft, updateDraft, toolCatalog }: EditorProps & { tool
   return (
     <div className="space-y-4">
       <Panel>
-        <SectionHeader icon={FileCode2} title="JavaScript 工具" description="用 goja 注册新工具，并按需授权其组合现有工具、持久化状态和发送任务通知。">
+        <SectionHeader icon={FileCode2} title="自定义工具" description="创建智能体可直接调用的新工具，并按需授权其组合现有能力、保存状态和发送任务通知。">
           <div className="flex flex-wrap gap-2">
             <Button variant="outline" onClick={() => setDialog({ kind: "tool" })}>
               <Sparkles className="h-4 w-4" />
-              AI 生成工具
+              AI 创建工具
             </Button>
             <Button onClick={addTool}>
               <Plus className="h-4 w-4" />
@@ -1251,36 +1295,42 @@ function JavaScriptTab({ draft, updateDraft, toolCatalog }: EditorProps & { tool
           </div>
         </SectionHeader>
         <PanelBody className="grid gap-4 xl:grid-cols-2">
-          {tools.map((tool, index) => (
-            <JavaScriptToolEditor
-              key={index}
-              tool={tool}
-              toolCatalog={toolCatalog}
-              onAI={() => setDialog({ kind: "tool", index })}
-              onChange={(value) =>
-                updateDraft((next) => {
-                  const items = [...(next.javascript?.tools || [])];
-                  items[index] = value;
-                  next.javascript = { ...(next.javascript || {}), tools: items };
-                })
-              }
-              onRemove={() =>
-                updateDraft((next) => {
-                  next.javascript = { ...(next.javascript || {}), tools: (next.javascript?.tools || []).filter((_, itemIndex) => itemIndex !== index) };
-                })
-              }
-            />
-          ))}
-          {tools.length === 0 ? <EmptyState title="暂无 JavaScript 工具" description="手动添加，或描述需求让 AI 生成完整工具定义。" /> : null}
+          {tools.map((tool, index) => {
+            const expanded = expandedToolIndex === index;
+            return (
+              <JavaScriptToolEditor
+                key={index}
+                tool={tool}
+                toolCatalog={toolCatalog}
+                expanded={expanded}
+                onToggle={() => setExpandedToolIndex(expanded ? null : index)}
+                onAI={() => setDialog({ kind: "tool", index })}
+                onChange={(value) =>
+                  updateDraft((next) => {
+                    const items = [...(next.javascript?.tools || [])];
+                    items[index] = value;
+                    next.javascript = { ...(next.javascript || {}), tools: items };
+                  })
+                }
+                onRemove={() => {
+                  updateDraft((next) => {
+                    next.javascript = { ...(next.javascript || {}), tools: (next.javascript?.tools || []).filter((_, itemIndex) => itemIndex !== index) };
+                  });
+                  setExpandedToolIndex((current) => current === index ? null : current !== null && current > index ? current - 1 : current);
+                }}
+              />
+            );
+          })}
+          {tools.length === 0 ? <EmptyState title="暂无自定义工具" description="手动添加，或描述需求让 AI 创建完整工具。" /> : null}
         </PanelBody>
       </Panel>
 
       <Panel>
-        <SectionHeader icon={Cable} title="流程 Hooks" description="在运行、事件、工具调用和模型请求边界观察、改写、跳过或拒绝流程。">
+        <SectionHeader icon={Cable} title="流程规则" description="在任务运行、事件、工具调用和模型请求等环节观察、改写、跳过或拒绝流程。">
           <div className="flex flex-wrap gap-2">
             <Button variant="outline" onClick={() => setDialog({ kind: "hook" })}>
               <Sparkles className="h-4 w-4" />
-              AI 生成 Hook
+              AI 创建规则
             </Button>
             <Button onClick={addHook}>
               <Plus className="h-4 w-4" />
@@ -1289,26 +1339,32 @@ function JavaScriptTab({ draft, updateDraft, toolCatalog }: EditorProps & { tool
           </div>
         </SectionHeader>
         <PanelBody className="grid gap-4 xl:grid-cols-2">
-          {hooks.map((hook, index) => (
-            <JavaScriptHookEditor
-              key={index}
-              hook={hook}
-              onAI={() => setDialog({ kind: "hook", index })}
-              onChange={(value) =>
-                updateDraft((next) => {
-                  const items = [...(next.javascript?.hooks || [])];
-                  items[index] = value;
-                  next.javascript = { ...(next.javascript || {}), hooks: items };
-                })
-              }
-              onRemove={() =>
-                updateDraft((next) => {
-                  next.javascript = { ...(next.javascript || {}), hooks: (next.javascript?.hooks || []).filter((_, itemIndex) => itemIndex !== index) };
-                })
-              }
-            />
-          ))}
-          {hooks.length === 0 ? <EmptyState title="暂无 JavaScript Hook" description="添加 Hook 后可控制智能体执行流程。" /> : null}
+          {hooks.map((hook, index) => {
+            const expanded = expandedHookIndex === index;
+            return (
+              <JavaScriptHookEditor
+                key={index}
+                hook={hook}
+                expanded={expanded}
+                onToggle={() => setExpandedHookIndex(expanded ? null : index)}
+                onAI={() => setDialog({ kind: "hook", index })}
+                onChange={(value) =>
+                  updateDraft((next) => {
+                    const items = [...(next.javascript?.hooks || [])];
+                    items[index] = value;
+                    next.javascript = { ...(next.javascript || {}), hooks: items };
+                  })
+                }
+                onRemove={() => {
+                  updateDraft((next) => {
+                    next.javascript = { ...(next.javascript || {}), hooks: (next.javascript?.hooks || []).filter((_, itemIndex) => itemIndex !== index) };
+                  });
+                  setExpandedHookIndex((current) => current === index ? null : current !== null && current > index ? current - 1 : current);
+                }}
+              />
+            );
+          })}
+          {hooks.length === 0 ? <EmptyState title="暂无流程规则" description="添加规则后可按需控制智能体执行流程。" /> : null}
         </PanelBody>
       </Panel>
 
@@ -1328,12 +1384,16 @@ function JavaScriptTab({ draft, updateDraft, toolCatalog }: EditorProps & { tool
 function JavaScriptToolEditor({
   tool,
   toolCatalog,
+  expanded,
+  onToggle,
   onChange,
   onRemove,
   onAI,
 }: {
   tool: JavaScriptToolConfig;
   toolCatalog: ToolInfo[];
+  expanded: boolean;
+  onToggle: () => void;
   onChange: (value: JavaScriptToolConfig) => void;
   onRemove: () => void;
   onAI: () => void;
@@ -1375,13 +1435,22 @@ function JavaScriptToolEditor({
   }
 
   return (
-    <ConfigCard title={tool.name || tool.id || "JavaScript 工具"} aside={tool.id} onRemove={onRemove}>
-      <div className="flex justify-end">
-        <Button size="sm" variant="ghost" onClick={onAI}>
-          <Sparkles className="h-4 w-4" />
-          AI 重写
-        </Button>
-      </div>
+    <ExtensionConfigCard
+      title={tool.name || tool.id || "未命名工具"}
+      id={tool.id}
+      description={tool.description}
+      expanded={expanded}
+      badges={[tool.enabled ? "已启用" : "已关闭", tool.read_only ?? true ? "只读" : "可修改"]}
+      metrics={[
+        { label: "状态", value: tool.enabled ? "启用" : "关闭" },
+        { label: "权限", value: `${tool.permissions?.length || 0} 项` },
+        { label: "参数", value: `${toolParameterCount(tool)} 项` },
+        { label: "超时", value: `${tool.timeout_ms ?? 200} ms` },
+      ]}
+      onToggle={onToggle}
+      onAI={onAI}
+      onRemove={onRemove}
+    >
       <ToggleField label="启用工具" checked={Boolean(tool.enabled)} onChange={(enabled) => update({ enabled })} />
       <div className="grid gap-3 md:grid-cols-2">
         <TextField label="工具 ID" value={tool.id} onChange={(id) => update({ id })} placeholder="lower_snake_case" />
@@ -1394,7 +1463,7 @@ function JavaScriptToolEditor({
       </div>
       <JavaScriptPermissionField values={tool.permissions || []} toolCatalog={toolCatalog} onChange={(permissions) => update({ permissions })} />
       <JSONSchemaField value={tool.parameters} onChange={(parameters) => update({ parameters })} />
-      <Field label="工具源码（必须定义 execute(input, context)）">
+      <Field label="执行代码（JavaScript，必须定义 execute(input, context)）">
         <Textarea className="min-h-64 font-mono text-xs leading-5" value={tool.source || ""} spellCheck={false} onChange={(event) => update({ source: event.target.value })} />
       </Field>
       <Field
@@ -1409,7 +1478,7 @@ function JavaScriptToolEditor({
         <Textarea className="min-h-28 font-mono text-xs leading-5" value={testInput} spellCheck={false} onChange={(event) => setTestInput(event.target.value)} />
         <div className="text-xs leading-5 text-amber-700">试运行会真实调用已授权能力并可能产生副作用；工具审批和工作区边界仍然生效。</div>
         {testError ? <div className="rounded-lg border border-destructive/40 bg-destructive/5 px-3 py-2 text-xs text-destructive">{testError}</div> : null}
-        {testRan ? <Textarea className="min-h-28 font-mono text-xs leading-5" value={testResult} placeholder="脚本返回空结果" readOnly /> : null}
+        {testRan ? <Textarea className="min-h-28 font-mono text-xs leading-5" value={testResult} placeholder="工具返回空结果" readOnly /> : null}
         {testNotices.length > 0 ? (
           <div className="space-y-1 rounded-lg border border-border/70 bg-card/45 px-3 py-2">
             {testNotices.map((notice, index) => (
@@ -1418,45 +1487,58 @@ function JavaScriptToolEditor({
           </div>
         ) : null}
       </Field>
-    </ConfigCard>
+    </ExtensionConfigCard>
   );
 }
 
 function JavaScriptHookEditor({
   hook,
+  expanded,
+  onToggle,
   onChange,
   onRemove,
   onAI,
 }: {
   hook: JavaScriptHookConfig;
+  expanded: boolean;
+  onToggle: () => void;
   onChange: (value: JavaScriptHookConfig) => void;
   onRemove: () => void;
   onAI: () => void;
 }) {
   const update = (patch: Partial<JavaScriptHookConfig>) => onChange({ ...hook, ...patch });
   return (
-    <ConfigCard title={hook.name || hook.id || "JavaScript Hook"} aside={hook.id} onRemove={onRemove}>
-      <div className="flex justify-end">
-        <Button size="sm" variant="ghost" onClick={onAI}>
-          <Sparkles className="h-4 w-4" />
-          AI 重写
-        </Button>
-      </div>
-      <ToggleField label="启用 Hook" checked={Boolean(hook.enabled)} onChange={(enabled) => update({ enabled })} />
+    <ExtensionConfigCard
+      title={hook.name || hook.id || "未命名流程规则"}
+      id={hook.id}
+      description={flowRuleSummary(hook.hook_points || [])}
+      expanded={expanded}
+      badges={[hook.enabled ? "已启用" : "已关闭", "流程规则"]}
+      metrics={[
+        { label: "状态", value: hook.enabled ? "启用" : "关闭" },
+        { label: "触发环节", value: `${hook.hook_points?.length || 0} 项` },
+        { label: "优先级", value: `${hook.priority ?? 100}` },
+        { label: "异常处理", value: errorPolicyLabel(hook.error_policy || "fail") },
+      ]}
+      onToggle={onToggle}
+      onAI={onAI}
+      onRemove={onRemove}
+    >
+      <ToggleField label="启用规则" checked={Boolean(hook.enabled)} onChange={(enabled) => update({ enabled })} />
       <div className="grid gap-3 md:grid-cols-2">
-        <TextField label="Hook ID" value={hook.id} onChange={(id) => update({ id })} placeholder="lower_snake_case" />
+        <TextField label="规则 ID" value={hook.id} onChange={(id) => update({ id })} placeholder="lower_snake_case" />
         <TextField label="展示名称" value={hook.name} onChange={(name) => update({ name })} />
       </div>
       <HookPointField values={hook.hook_points || []} onChange={(hook_points) => update({ hook_points })} />
       <div className="grid gap-3 md:grid-cols-3">
         <NumberField label="超时（毫秒）" value={hook.timeout_ms ?? 200} min={10} max={5000} onChange={(timeout_ms) => update({ timeout_ms })} />
         <NumberField label="优先级" value={hook.priority ?? 100} onChange={(priority) => update({ priority })} />
-        <SelectField label="错误策略" value={hook.error_policy || "fail"} options={["fail", "warn", "ignore"]} onChange={(error_policy) => update({ error_policy: error_policy as JavaScriptHookConfig["error_policy"] })} />
+        <SelectField label="异常处理" value={hook.error_policy || "fail"} options={["fail", "warn", "ignore"]} optionLabels={{ fail: "中止任务", warn: "记录警告", ignore: "忽略错误" }} onChange={(error_policy) => update({ error_policy: error_policy as JavaScriptHookConfig["error_policy"] })} />
       </div>
-      <Field label="Hook 源码（必须定义 handle(hook)）">
+      <Field label="规则代码（JavaScript，必须定义 handle(hook)）">
         <Textarea className="min-h-64 font-mono text-xs leading-5" value={hook.source || ""} spellCheck={false} onChange={(event) => update({ source: event.target.value })} />
       </Field>
-    </ConfigCard>
+    </ExtensionConfigCard>
   );
 }
 
@@ -1487,8 +1569,8 @@ function JavaScriptPermissionField({ values, toolCatalog, onChange }: { values: 
     <Field label="宿主能力权限">
       <div className="space-y-3 rounded-xl border border-border/75 bg-background/45 p-3">
         <div className="grid gap-2 md:grid-cols-2">
-          <PermissionButton active={selected.has("storage")} title="持久化状态" detail="按脚本 ID 隔离的 JSON 存储" onClick={() => toggle("storage")} />
-          <PermissionButton active={selected.has("events:notice")} title="任务通知" detail="向当前任务发送 info / warn / error" onClick={() => toggle("events:notice")} />
+          <PermissionButton active={selected.has("storage")} title="持久化状态" detail="按工具 ID 隔离的 JSON 存储" onClick={() => toggle("storage")} />
+          <PermissionButton active={selected.has("events:notice")} title="任务通知" detail="向当前任务发送普通、警告或错误通知" onClick={() => toggle("events:notice")} />
         </div>
         <div className="rounded-lg border border-border/70 bg-card/55 px-3 py-2 text-xs leading-5 text-muted-foreground">
           日志 API 始终可用。工具组授权开放整组能力；展开后选择单个工具可执行最小授权，实际调用仍受审批与路径安全策略保护。
@@ -1570,16 +1652,16 @@ function PermissionButton({ active, title, detail, onClick }: { active: boolean;
 function HookPointField({ values, onChange }: { values: string[]; onChange: (values: string[]) => void }) {
   const selected = new Set(values);
   return (
-    <Field label="扩展点">
+    <Field label="触发环节">
       <div className="flex flex-wrap gap-2 rounded-xl border border-border/75 bg-background/45 p-3">
         {hookPointOptions.map((point) => (
           <button
             key={point}
             type="button"
-            className={cn("rounded-lg border px-2.5 py-1.5 font-mono text-xs", selected.has(point) ? "border-primary/50 bg-primary/10 text-primary" : "border-border text-muted-foreground")}
+            className={cn("rounded-lg border px-2.5 py-1.5 text-xs", selected.has(point) ? "border-primary/50 bg-primary/10 text-primary" : "border-border text-muted-foreground")}
             onClick={() => onChange(selected.has(point) ? values.filter((item) => item !== point) : [...values, point])}
           >
-            {point}
+            {hookPointLabels[point] || point}
           </button>
         ))}
       </div>
@@ -1653,7 +1735,7 @@ function JavaScriptAIDialog({
         current_hook: kind === "hook" ? (current as JavaScriptHookConfig | undefined) : undefined,
       });
       const value = kind === "tool" ? response.tool : response.hook;
-      if (!value) throw new Error("AI 未返回有效脚本");
+      if (!value) throw new Error(`AI 未返回有效${kind === "tool" ? "工具" : "流程规则"}`);
       setResult(value);
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
@@ -1669,9 +1751,9 @@ function JavaScriptAIDialog({
           <div>
             <div className="flex items-center gap-2 font-semibold">
               <Sparkles className="h-4 w-4 text-primary" />
-              AI {current ? "重写" : "生成"} JavaScript {kind === "tool" ? "工具" : "Hook"}
+              AI {current ? "修改" : "创建"}{kind === "tool" ? "自定义工具" : "流程规则"}
             </div>
-            <div className="mt-1 text-sm leading-6 text-muted-foreground">生成结果会先经过 goja 编译校验，确认应用后仍需保存配置才会生效。</div>
+            <div className="mt-1 text-sm leading-6 text-muted-foreground">生成结果会先经过代码校验，确认应用后仍需保存配置才会生效。</div>
           </div>
           <Button size="icon" variant="ghost" onClick={onClose} aria-label="关闭">
             <X className="h-4 w-4" />
@@ -1688,7 +1770,7 @@ function JavaScriptAIDialog({
           </Field>
           {error ? <div className="rounded-lg border border-destructive/40 bg-destructive/5 px-3 py-2 text-sm text-destructive">{error}</div> : null}
           {result ? (
-            <Field label="已通过编译校验的草稿">
+            <Field label="已通过校验的草稿">
               <Textarea className="min-h-72 font-mono text-xs leading-5" value={JSON.stringify(result, null, 2)} readOnly />
             </Field>
           ) : null}
@@ -2233,7 +2315,7 @@ function ToolSelectField({
                   <Wrench className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
                   <span className="truncate">{option?.label || tool}</span>
                   {option?.source === "mcp" ? <Badge>MCP</Badge> : null}
-                  {option?.source === "custom" ? <Badge>JS</Badge> : null}
+                  {option?.source === "custom" ? <Badge>自定义</Badge> : null}
                   {!option ? <Badge>手动</Badge> : null}
                   {disabled ? null : (
                     <button
@@ -2331,7 +2413,7 @@ function buildToolOptions(tools: ToolInfo[], mcpServers: MCPServerConfig[]): Too
       label: tool.display_name || name,
       description: tool.description || tool.included_tools?.join(", "),
       category: tool.category,
-      source: tool.name === "javascript" ? "custom" : tool.builtin === false ? "mcp" : "builtin",
+      source: isMCPToolGroup(tool) ? "mcp" : tool.builtin === false ? "custom" : "builtin",
       readOnly: tool.read_only,
       destructive: tool.destructive,
       enabled: true,
@@ -2423,6 +2505,66 @@ function ChannelCard({ title, description, children }: { title: string; descript
       </PanelHeader>
       <PanelBody className="space-y-4">{children}</PanelBody>
     </Panel>
+  );
+}
+
+function ExtensionConfigCard({
+  title,
+  id,
+  description,
+  badges,
+  metrics,
+  expanded,
+  onToggle,
+  onAI,
+  onRemove,
+  children,
+}: {
+  title: string;
+  id?: string;
+  description?: string;
+  badges: string[];
+  metrics: Array<{ label: string; value: string }>;
+  expanded: boolean;
+  onToggle: () => void;
+  onAI: () => void;
+  onRemove: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className={cn("rounded-xl border border-border/75 bg-card/65 transition-colors", expanded && "xl:col-span-2")}>
+      <div className="flex min-h-36 flex-col gap-3 p-4">
+        <button type="button" className="flex min-w-0 flex-1 items-start gap-3 text-left" onClick={onToggle} aria-expanded={expanded}>
+          <div className="min-w-0 flex-1">
+            <div className="flex min-w-0 flex-wrap items-center gap-2">
+              <span className="truncate font-medium">{title}</span>
+              {badges.map((badge) => <Badge key={badge}>{badge}</Badge>)}
+            </div>
+            <div className="mt-1 text-xs text-muted-foreground">{id || "未设置 ID"}</div>
+            <div className="mt-3 line-clamp-2 text-sm leading-6 text-muted-foreground">{description || "暂无描述"}</div>
+          </div>
+          <ChevronDown className={cn("mt-1 h-4 w-4 shrink-0 text-muted-foreground transition-transform", expanded && "rotate-180")} />
+        </button>
+        <div className="grid grid-cols-2 gap-2 text-xs text-muted-foreground sm:grid-cols-4">
+          {metrics.map((metric) => <AgentSummaryMetric key={metric.label} label={metric.label} value={metric.value} />)}
+        </div>
+        <div className="flex items-center justify-between gap-2">
+          <Button size="sm" variant={expanded ? "secondary" : "outline"} onClick={onToggle}>
+            {expanded ? "收起" : "编辑"}
+          </Button>
+          <div className="flex items-center gap-1">
+            <Button size="sm" variant="ghost" onClick={onAI}>
+              <Sparkles className="h-4 w-4" />
+              AI 修改
+            </Button>
+            <Button size="icon" variant="ghost" onClick={onRemove} aria-label="删除">
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+      </div>
+      {expanded ? <div className="space-y-3 border-t border-border/70 p-4">{children}</div> : null}
+    </div>
   );
 }
 
@@ -2602,9 +2744,9 @@ function NumberField({
     if (min !== undefined) {
       next = Math.max(min, next);
     }
-	if (max !== undefined) {
-	  next = Math.min(max, next);
-	}
+    if (max !== undefined) {
+      next = Math.min(max, next);
+    }
     return next;
   }
 
@@ -2619,12 +2761,14 @@ function SelectField({
   label,
   value,
   options,
+  optionLabels,
   onChange,
   disabled,
 }: {
   label: string;
   value?: string;
   options: string[];
+  optionLabels?: Record<string, string>;
   onChange: (value: string) => void;
   disabled?: boolean;
 }) {
@@ -2650,7 +2794,7 @@ function SelectField({
           aria-expanded={open}
           onClick={() => setOpen((current) => !current)}
         >
-          <span className={cn("min-w-0 truncate", !selected && "text-muted-foreground")}>{selected || "未选择"}</span>
+          <span className={cn("min-w-0 truncate", !selected && "text-muted-foreground")}>{selected ? optionLabels?.[selected] || selected : "未选择"}</span>
           <ChevronDown className={cn("h-4 w-4 shrink-0 text-muted-foreground transition-transform", open && "rotate-180")} />
         </button>
         {open ? (
@@ -2674,7 +2818,7 @@ function SelectField({
                   setOpen(false);
                 }}
               >
-                <span className={cn("min-w-0 truncate", !option && "text-muted-foreground")}>{option || "未选择"}</span>
+                <span className={cn("min-w-0 truncate", !option && "text-muted-foreground")}>{option ? optionLabels?.[option] || option : "未选择"}</span>
               </button>
             ))}
           </div>

@@ -276,8 +276,8 @@ func RegisterDefaults(mcpProvider toolport.MCPProvider) (*apptools.ToolGroupRegi
 		{
 			Info: apptools.ToolGroupInfo{
 				Name:        "javascript",
-				DisplayName: "JavaScript 扩展",
-				Description: "运行通过 Web 配置的 goja 自定义工具；脚本仅接收 JSON 参数和调用元数据。",
+				DisplayName: "自定义工具",
+				Description: "运行用户创建的工具，可按权限组合现有能力、保存状态并发送任务通知。",
 				Category:    "扩展",
 				Builtin:     false,
 			},

@@ -2,6 +2,7 @@ package tools
 
 import (
 	"context"
+	"strings"
 	"testing"
 
 	mcpadapter "fkteams/internal/adapters/tools/mcp"
@@ -87,6 +88,16 @@ func TestBootstrapRegistersJavaScriptToolGroup(t *testing.T) {
 	if _, ok, err := registry.Resolve(context.Background(), "javascript", nil); err != nil || !ok {
 		t.Fatalf("Resolve(javascript) = ok %v, error %v", ok, err)
 	}
+	for _, info := range registry.Infos() {
+		if info.Name != "javascript" {
+			continue
+		}
+		if info.DisplayName != "自定义工具" || strings.Contains(strings.ToLower(info.Description), "goja") {
+			t.Fatalf("javascript tool group user-facing metadata = %#v", info)
+		}
+		return
+	}
+	t.Fatal("javascript tool group info is not registered")
 }
 
 func TestJavaScriptToolGroupUsesResolveContextConfig(t *testing.T) {

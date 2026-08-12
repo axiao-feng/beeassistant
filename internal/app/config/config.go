@@ -19,6 +19,11 @@ import (
 
 const maxConfigFileBytes = 8 << 20
 
+const (
+	maxJavaScriptItems       = 32
+	maxJavaScriptSourceBytes = 64 << 10
+)
+
 // ==================== 模型池 ====================
 
 const (
@@ -380,6 +385,23 @@ type ToolApprovalSettings struct {
 	AutoApprove []string `toml:"auto_approve" json:"auto_approve"`
 }
 
+// JavaScriptTool 描述一个由 goja 执行的自定义工具。
+type JavaScriptTool struct {
+	ID          string         `toml:"id" json:"id"`
+	Name        string         `toml:"name" json:"name"`
+	Description string         `toml:"description" json:"description"`
+	Enabled     bool           `toml:"enabled" json:"enabled"`
+	TimeoutMS   int            `toml:"timeout_ms,omitempty" json:"timeout_ms,omitempty"`
+	ReadOnly    bool           `toml:"read_only" json:"read_only"`
+	Parameters  map[string]any `toml:"parameters,omitempty" json:"parameters,omitempty"`
+	Source      string         `toml:"source" json:"source"`
+}
+
+// JavaScriptSettings 保存用户可编辑的 JavaScript 扩展。
+type JavaScriptSettings struct {
+	Tools []JavaScriptTool `toml:"tools" json:"tools"`
+}
+
 // ==================== OpenAI 兼容 API ====================
 
 // OpenAIAPI OpenAI 兼容 API 配置
@@ -391,15 +413,16 @@ type OpenAIAPI struct {
 
 // Config 应用全局配置
 type Config struct {
-	Models     []ModelConfig `toml:"models" json:"models"`
-	Memory     Memory        `toml:"memory" json:"memory"`
-	Server     Server        `toml:"server" json:"server"`
-	OpenAIAPI  OpenAIAPI     `toml:"openai_api" json:"openai_api"`
-	Agents     Agents        `toml:"agents" json:"agents"`
-	Channels   Channels      `toml:"channels" json:"channels"`
-	Roundtable Roundtable    `toml:"roundtable" json:"roundtable"`
-	Deep       Deep          `toml:"deep" json:"deep"`
-	Tools      ToolSettings  `toml:"tools" json:"tools"`
+	Models     []ModelConfig      `toml:"models" json:"models"`
+	Memory     Memory             `toml:"memory" json:"memory"`
+	Server     Server             `toml:"server" json:"server"`
+	OpenAIAPI  OpenAIAPI          `toml:"openai_api" json:"openai_api"`
+	Agents     Agents             `toml:"agents" json:"agents"`
+	Channels   Channels           `toml:"channels" json:"channels"`
+	Roundtable Roundtable         `toml:"roundtable" json:"roundtable"`
+	Deep       Deep               `toml:"deep" json:"deep"`
+	Tools      ToolSettings       `toml:"tools" json:"tools"`
+	JavaScript JavaScriptSettings `toml:"javascript" json:"javascript"`
 }
 
 // ResolveModel 通过稳定 ID 查找模型配置，空 ID 返回默认对话模型。
@@ -478,6 +501,69 @@ func (c *Config) ValidateDeep() error {
 		return fmt.Errorf("deep.max_iterations must be >= 0")
 	}
 	return nil
+}
+
+// ValidateJavaScript 校验 JavaScript 扩展的数量、标识和资源上限。
+func (c *Config) ValidateJavaScript() error {
+	if c == nil {
+		return nil
+	}
+	if len(c.JavaScript.Tools) > maxJavaScriptItems {
+		return fmt.Errorf("javascript.tools exceeds the limit of %d", maxJavaScriptItems)
+	}
+	toolIDs := make(map[string]struct{}, len(c.JavaScript.Tools))
+	for _, item := range c.JavaScript.Tools {
+		if err := validateJavaScriptItem("javascript tool", item.ID, item.Name, item.Source, item.TimeoutMS); err != nil {
+			return err
+		}
+		if !validJavaScriptID(item.ID) {
+			return fmt.Errorf("javascript tool id %q must start with a letter and contain only letters, digits, underscores or hyphens", item.ID)
+		}
+		if strings.TrimSpace(item.Description) == "" {
+			return fmt.Errorf("javascript tool %s description is required", item.ID)
+		}
+		if schemaType, _ := item.Parameters["type"].(string); len(item.Parameters) > 0 && schemaType != "object" {
+			return fmt.Errorf("javascript tool %s parameters root type must be object", item.ID)
+		}
+		if _, exists := toolIDs[item.ID]; exists {
+			return fmt.Errorf("duplicate javascript tool id: %s", item.ID)
+		}
+		toolIDs[item.ID] = struct{}{}
+	}
+	return nil
+}
+
+func validateJavaScriptItem(kind, id, name, source string, timeoutMS int) error {
+	if strings.TrimSpace(id) == "" {
+		return fmt.Errorf("%s id is required", kind)
+	}
+	if strings.TrimSpace(name) == "" {
+		return fmt.Errorf("%s %s name is required", kind, id)
+	}
+	if len(source) > maxJavaScriptSourceBytes {
+		return fmt.Errorf("%s %s source exceeds %d bytes", kind, id, maxJavaScriptSourceBytes)
+	}
+	if timeoutMS < 0 || timeoutMS > 5000 {
+		return fmt.Errorf("%s %s timeout_ms must be between 0 and 5000", kind, id)
+	}
+	return nil
+}
+
+func validJavaScriptID(id string) bool {
+	if len(id) == 0 || len(id) > 64 || !isASCIILetter(id[0]) {
+		return false
+	}
+	for i := 1; i < len(id); i++ {
+		char := id[i]
+		if !isASCIILetter(char) && (char < '0' || char > '9') && char != '_' && char != '-' {
+			return false
+		}
+	}
+	return true
+}
+
+func isASCIILetter(char byte) bool {
+	return char >= 'a' && char <= 'z' || char >= 'A' && char <= 'Z'
 }
 
 // WorkspaceDir 返回工作区目录（固定为 ~/.fkteams/workspace）
@@ -595,7 +681,37 @@ func cloneConfig(cfg *Config) *Config {
 		}
 	}
 	cloned.Tools.Approval.AutoApprove = append([]string(nil), cfg.Tools.Approval.AutoApprove...)
+	cloned.JavaScript.Tools = append([]JavaScriptTool(nil), cfg.JavaScript.Tools...)
+	for i := range cloned.JavaScript.Tools {
+		cloned.JavaScript.Tools[i].Parameters = cloneAnyMap(cfg.JavaScript.Tools[i].Parameters)
+	}
 	return &cloned
+}
+
+func cloneAnyMap(source map[string]any) map[string]any {
+	if source == nil {
+		return nil
+	}
+	result := make(map[string]any, len(source))
+	for key, value := range source {
+		result[key] = cloneAnyValue(value)
+	}
+	return result
+}
+
+func cloneAnyValue(value any) any {
+	switch typed := value.(type) {
+	case map[string]any:
+		return cloneAnyMap(typed)
+	case []any:
+		result := make([]any, len(typed))
+		for i := range typed {
+			result[i] = cloneAnyValue(typed[i])
+		}
+		return result
+	default:
+		return value
+	}
 }
 
 // EnsureDefaultModel 检查是否配置了默认模型，未配置时返回引导信息
@@ -836,6 +952,33 @@ func GenerateExample() error {
 					Env:         map[string]string{"FEIKONG_MCP_LOG_LEVEL": "info"},
 					Args:        []string{"run", "main.go"},
 					Transport:   "stdio",
+				},
+			},
+		},
+		JavaScript: JavaScriptSettings{
+			Tools: []JavaScriptTool{
+				{
+					ID:          "text_stats",
+					Name:        "文本统计",
+					Description: "统计文本的字符数和单词数。",
+					Enabled:     false,
+					TimeoutMS:   200,
+					ReadOnly:    true,
+					Parameters: map[string]any{
+						"type": "object",
+						"properties": map[string]any{
+							"text": map[string]any{
+								"type":        "string",
+								"description": "需要统计的文本",
+							},
+						},
+						"required": []string{"text"},
+					},
+					Source: `function execute(input) {
+  const text = String(input.text || "");
+  const words = text.trim() ? text.trim().split(/\s+/).length : 0;
+  return { characters: Array.from(text).length, words };
+}`,
 				},
 			},
 		},

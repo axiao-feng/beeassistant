@@ -77,6 +77,16 @@ func TestBootstrapRegistersSSHToolGroup(t *testing.T) {
 	t.Fatal("ssh tool group is not registered")
 }
 
+func TestBootstrapRegistersJavaScriptToolGroup(t *testing.T) {
+	registry, err := RegisterDefaults(mcpadapter.NewProvider())
+	if err != nil {
+		t.Fatalf("RegisterDefaults() error = %v", err)
+	}
+	if _, ok, err := registry.Resolve(context.Background(), "javascript", nil); err != nil || !ok {
+		t.Fatalf("Resolve(javascript) = ok %v, error %v", ok, err)
+	}
+}
+
 func contains(values []string, want string) bool {
 	for _, value := range values {
 		if value == want {

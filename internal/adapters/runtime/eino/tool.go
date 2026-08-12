@@ -2,6 +2,7 @@ package eino
 
 import (
 	"context"
+	"encoding/json"
 	runtimeport "fkteams/internal/ports/runtime"
 	"fmt"
 	"reflect"
@@ -103,6 +104,19 @@ type reflectedTool struct {
 }
 
 func newCoreTool(info *runtimeport.ToolInfo, inner runtimeport.Tool) (tool.InvokableTool, error) {
+	if provider, ok := inner.(runtimeport.ToolInputSchemaProvider); ok {
+		inputSchema, err := dynamicInputSchema(provider.InputSchema())
+		if err != nil {
+			return nil, fmt.Errorf("tool %s input schema: %w", info.Name, err)
+		}
+		toolInfo := &schema.ToolInfo{
+			Name:        info.Name,
+			Desc:        info.Desc,
+			Extra:       info.Extra,
+			ParamsOneOf: schema.NewParamsOneOfByJSONSchema(inputSchema),
+		}
+		return &reflectedTool{info: toolInfo, inner: inner}, nil
+	}
 	inputType := reflect.TypeOf(struct{}{})
 	if provider, ok := inner.(runtimeport.ToolInputTypeProvider); ok {
 		inputType = provider.InputType()
@@ -121,6 +135,27 @@ func newCoreTool(info *runtimeport.ToolInfo, inner runtimeport.Tool) (tool.Invok
 		ParamsOneOf: schema.NewParamsOneOfByJSONSchema(schemaForType(inputType)),
 	}
 	return &reflectedTool{info: toolInfo, inputType: inputType, inner: inner}, nil
+}
+
+func dynamicInputSchema(value map[string]any) (*jsonschema.Schema, error) {
+	if value == nil {
+		value = map[string]any{
+			"type":       "object",
+			"properties": map[string]any{},
+		}
+	}
+	data, err := json.Marshal(value)
+	if err != nil {
+		return nil, err
+	}
+	var result jsonschema.Schema
+	if err := json.Unmarshal(data, &result); err != nil {
+		return nil, err
+	}
+	if result.Type != string(schema.Object) {
+		return nil, fmt.Errorf("root type must be object")
+	}
+	return &result, nil
 }
 
 func (t *reflectedTool) Info(context.Context) (*schema.ToolInfo, error) {

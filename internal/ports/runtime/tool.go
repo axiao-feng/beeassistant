@@ -66,6 +66,11 @@ type ToolInputTypeProvider interface {
 	InputType() reflect.Type
 }
 
+// ToolInputSchemaProvider 允许动态工具直接提供 JSON Schema 参数契约。
+type ToolInputSchemaProvider interface {
+	InputSchema() map[string]any
+}
+
 type functionTool struct {
 	info      ToolInfo
 	handler   reflect.Value

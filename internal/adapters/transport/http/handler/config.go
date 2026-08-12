@@ -3,6 +3,7 @@ package handler
 import (
 	"context"
 	memorymodel "fkteams/internal/adapters/model/memory"
+	javascripttool "fkteams/internal/adapters/tools/javascript"
 	"fkteams/internal/app/agent/catalog"
 	"fkteams/internal/app/appstate"
 	"fkteams/internal/app/config"
@@ -102,6 +103,14 @@ func (rt *Runtime) UpdateConfigHandlerWithState(state *appstate.State) gin.Handl
 			return
 		}
 		if err := newCfg.ValidateDeep(); err != nil {
+			Fail(c, http.StatusBadRequest, err.Error())
+			return
+		}
+		if err := newCfg.ValidateJavaScript(); err != nil {
+			Fail(c, http.StatusBadRequest, err.Error())
+			return
+		}
+		if err := javascripttool.ValidateDefinitions(newCfg.JavaScript.Tools); err != nil {
 			Fail(c, http.StatusBadRequest, err.Error())
 			return
 		}

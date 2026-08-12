@@ -17,6 +17,7 @@ import (
 	searchtool "fkteams/internal/adapters/tools/builtin/search"
 	sshtool "fkteams/internal/adapters/tools/builtin/ssh"
 	todotool "fkteams/internal/adapters/tools/builtin/todo"
+	javascripttool "fkteams/internal/adapters/tools/javascript"
 	mcpadapter "fkteams/internal/adapters/tools/mcp"
 	"fkteams/internal/app/appdata"
 	"fkteams/internal/app/config"
@@ -262,6 +263,30 @@ func RegisterDefaults(mcpProvider toolport.MCPProvider) (*apptools.ToolGroupRegi
 					})
 				}
 				return sshTools.GetTools()
+			},
+		},
+		{
+			Info: apptools.ToolGroupInfo{
+				Name:        "javascript",
+				DisplayName: "JavaScript 扩展",
+				Description: "运行通过 Web 配置的 goja 自定义工具；脚本仅接收 JSON 参数和调用元数据。",
+				Category:    "扩展",
+				Builtin:     false,
+			},
+			Factory: func(apptools.ToolResolveContext) ([]runtimeport.Tool, error) {
+				definitions := config.Get().JavaScript.Tools
+				result := make([]runtimeport.Tool, 0, len(definitions))
+				for _, definition := range definitions {
+					if !definition.Enabled {
+						continue
+					}
+					tool, err := javascripttool.NewTool(definition)
+					if err != nil {
+						return nil, fmt.Errorf("initialize javascript tool %s: %w", definition.ID, err)
+					}
+					result = append(result, tool)
+				}
+				return result, nil
 			},
 		},
 		{

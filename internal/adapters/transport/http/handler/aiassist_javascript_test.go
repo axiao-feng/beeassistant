@@ -1,10 +1,13 @@
 package handler
 
 import (
+	"context"
 	"testing"
 
 	appaiassist "fkteams/internal/app/aiassist"
 	"fkteams/internal/app/config"
+	apptools "fkteams/internal/app/tools"
+	runtimeport "fkteams/internal/ports/runtime"
 )
 
 func TestValidateJavaScriptDraftCompilesTool(t *testing.T) {
@@ -43,11 +46,29 @@ func TestEnrichJavaScriptDraftRequestExcludesCurrentID(t *testing.T) {
 		Kind:        "tool",
 		CurrentTool: &config.JavaScriptTool{ID: "current"},
 	}
-	enrichJavaScriptDraftRequest(req, &config.Config{JavaScript: config.JavaScriptSettings{Tools: []config.JavaScriptTool{
+	enrichJavaScriptDraftRequest(context.Background(), req, &config.Config{JavaScript: config.JavaScriptSettings{Tools: []config.JavaScriptTool{
 		{ID: "current"},
 		{ID: "other"},
-	}}})
+	}}}, nil)
 	if len(req.ExistingIDs) != 1 || req.ExistingIDs[0] != "other" {
 		t.Fatalf("existing ids = %#v", req.ExistingIDs)
+	}
+}
+
+func TestEnrichJavaScriptDraftRequestAddsToolCatalog(t *testing.T) {
+	registry := apptools.NewToolGroupRegistry()
+	err := registry.Register(apptools.ToolGroupRegistration{
+		Info: apptools.ToolGroupInfo{
+			Name: "file", DisplayName: "文件", Description: "文件能力", Category: "文件", IncludedTools: []string{"file_read"},
+		},
+		Factory: func(apptools.ToolResolveContext) ([]runtimeport.Tool, error) { return nil, nil },
+	})
+	if err != nil {
+		t.Fatalf("Register() error = %v", err)
+	}
+	req := &appaiassist.JavaScriptDraftRequest{Kind: "tool"}
+	enrichJavaScriptDraftRequest(context.Background(), req, &config.Config{}, registry)
+	if len(req.AvailableToolGroups) != 1 || req.AvailableToolGroups[0].Name != "file" {
+		t.Fatalf("available tool groups = %#v", req.AvailableToolGroups)
 	}
 }

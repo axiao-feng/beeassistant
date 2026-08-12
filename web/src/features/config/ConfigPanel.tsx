@@ -211,7 +211,7 @@ export function ConfigPanel() {
         {activeTab === "channels" ? <ChannelsTab draft={draft} updateDraft={updateDraft} /> : null}
         {activeTab === "permissions" ? <PermissionsTab draft={draft} updateDraft={updateDraft} autoSaveDraft={(next) => persistConfig(next, "权限配置已保存")} saving={saving} /> : null}
         {activeTab === "tools" ? <ToolsTab draft={draft} updateDraft={updateDraft} /> : null}
-        {activeTab === "javascript" ? <JavaScriptTab draft={draft} updateDraft={updateDraft} /> : null}
+        {activeTab === "javascript" ? <JavaScriptTab draft={draft} updateDraft={updateDraft} toolCatalog={tools} /> : null}
         {activeTab === "other" ? <OtherTab draft={draft} toolsCount={tools.length} /> : null}
       </div>
     </div>
@@ -1159,7 +1159,7 @@ const hookPointOptions = [
 
 type JavaScriptDialogState = { kind: "tool" | "hook"; index?: number };
 
-function JavaScriptTab({ draft, updateDraft }: EditorProps) {
+function JavaScriptTab({ draft, updateDraft, toolCatalog }: EditorProps & { toolCatalog: ToolInfo[] }) {
   const tools = draft.javascript?.tools || [];
   const hooks = draft.javascript?.hooks || [];
   const [dialog, setDialog] = useState<JavaScriptDialogState | null>(null);
@@ -1178,6 +1178,7 @@ function JavaScriptTab({ draft, updateDraft }: EditorProps) {
             enabled: false,
             timeout_ms: 200,
             read_only: true,
+            permissions: [],
             parameters: { type: "object", properties: {} },
             source: "function execute(input, context) {\n  return input;\n}",
           },
@@ -1235,7 +1236,7 @@ function JavaScriptTab({ draft, updateDraft }: EditorProps) {
   return (
     <div className="space-y-4">
       <Panel>
-        <SectionHeader icon={FileCode2} title="JavaScript 工具" description="用 goja 注册模型可发现、可调用的新工具。脚本只能使用同步 JavaScript 和传入的 JSON 数据。">
+        <SectionHeader icon={FileCode2} title="JavaScript 工具" description="用 goja 注册新工具，并按需授权其组合现有工具、持久化状态和发送任务通知。">
           <div className="flex flex-wrap gap-2">
             <Button variant="outline" onClick={() => setDialog({ kind: "tool" })}>
               <Sparkles className="h-4 w-4" />
@@ -1252,6 +1253,7 @@ function JavaScriptTab({ draft, updateDraft }: EditorProps) {
             <JavaScriptToolEditor
               key={index}
               tool={tool}
+              toolCatalog={toolCatalog}
               onAI={() => setDialog({ kind: "tool", index })}
               onChange={(value) =>
                 updateDraft((next) => {
@@ -1323,11 +1325,13 @@ function JavaScriptTab({ draft, updateDraft }: EditorProps) {
 
 function JavaScriptToolEditor({
   tool,
+  toolCatalog,
   onChange,
   onRemove,
   onAI,
 }: {
   tool: JavaScriptToolConfig;
+  toolCatalog: ToolInfo[];
   onChange: (value: JavaScriptToolConfig) => void;
   onRemove: () => void;
   onAI: () => void;
@@ -1348,9 +1352,10 @@ function JavaScriptToolEditor({
       </div>
       <TextField label="工具描述" value={tool.description} onChange={(description) => update({ description })} placeholder="说明用途、调用时机和返回内容" />
       <div className="grid gap-3 md:grid-cols-2">
-        <NumberField label="超时（毫秒）" value={tool.timeout_ms ?? 200} min={10} onChange={(timeout_ms) => update({ timeout_ms })} />
+        <NumberField label="超时（毫秒）" value={tool.timeout_ms ?? 200} min={10} max={120000} onChange={(timeout_ms) => update({ timeout_ms })} />
         <ToggleField label="只读工具" checked={tool.read_only ?? true} onChange={(read_only) => update({ read_only })} />
       </div>
+      <JavaScriptPermissionField values={tool.permissions || []} toolCatalog={toolCatalog} onChange={(permissions) => update({ permissions })} />
       <JSONSchemaField value={tool.parameters} onChange={(parameters) => update({ parameters })} />
       <Field label="工具源码（必须定义 execute(input, context)）">
         <Textarea className="min-h-64 font-mono text-xs leading-5" value={tool.source || ""} spellCheck={false} onChange={(event) => update({ source: event.target.value })} />
@@ -1386,7 +1391,7 @@ function JavaScriptHookEditor({
       </div>
       <HookPointField values={hook.hook_points || []} onChange={(hook_points) => update({ hook_points })} />
       <div className="grid gap-3 md:grid-cols-3">
-        <NumberField label="超时（毫秒）" value={hook.timeout_ms ?? 200} min={10} onChange={(timeout_ms) => update({ timeout_ms })} />
+        <NumberField label="超时（毫秒）" value={hook.timeout_ms ?? 200} min={10} max={5000} onChange={(timeout_ms) => update({ timeout_ms })} />
         <NumberField label="优先级" value={hook.priority ?? 100} onChange={(priority) => update({ priority })} />
         <SelectField label="错误策略" value={hook.error_policy || "fail"} options={["fail", "warn", "ignore"]} onChange={(error_policy) => update({ error_policy: error_policy as JavaScriptHookConfig["error_policy"] })} />
       </div>
@@ -1394,6 +1399,113 @@ function JavaScriptHookEditor({
         <Textarea className="min-h-64 font-mono text-xs leading-5" value={hook.source || ""} spellCheck={false} onChange={(event) => update({ source: event.target.value })} />
       </Field>
     </ConfigCard>
+  );
+}
+
+function JavaScriptPermissionField({ values, toolCatalog, onChange }: { values: string[]; toolCatalog: ToolInfo[]; onChange: (values: string[]) => void }) {
+  const selected = new Set(values);
+  const groups = toolCatalog.filter((tool) => tool.name !== "javascript");
+  const known = new Set(["storage", "events:notice"]);
+  for (const group of groups) {
+    known.add(`tools:${group.name}`);
+    for (const name of group.included_tools || []) known.add(`tools:${group.name}/${name}`);
+  }
+  const unknown = values.filter((permission) => !known.has(permission));
+
+  function toggle(permission: string) {
+    onChange(selected.has(permission) ? values.filter((item) => item !== permission) : [...values, permission]);
+  }
+
+  function toggleGroup(group: string) {
+    const permission = `tools:${group}`;
+    if (selected.has(permission)) {
+      onChange(values.filter((item) => item !== permission));
+      return;
+    }
+    onChange([...values.filter((item) => !item.startsWith(`${permission}/`)), permission]);
+  }
+
+  return (
+    <Field label="宿主能力权限">
+      <div className="space-y-3 rounded-xl border border-border/75 bg-background/45 p-3">
+        <div className="grid gap-2 md:grid-cols-2">
+          <PermissionButton active={selected.has("storage")} title="持久化状态" detail="按脚本 ID 隔离的 JSON 存储" onClick={() => toggle("storage")} />
+          <PermissionButton active={selected.has("events:notice")} title="任务通知" detail="向当前任务发送 info / warn / error" onClick={() => toggle("events:notice")} />
+        </div>
+        <div className="rounded-lg border border-border/70 bg-card/55 px-3 py-2 text-xs leading-5 text-muted-foreground">
+          日志 API 始终可用。工具组授权开放整组能力；展开后选择单个工具可执行最小授权，实际调用仍受审批与路径安全策略保护。
+        </div>
+        <div className="space-y-2">
+          {groups.map((group) => {
+            const groupPermission = `tools:${group.name}`;
+            return (
+              <details key={group.name} className="rounded-lg border border-border/70 bg-card/45 px-3 py-2">
+                <summary className="cursor-pointer list-none">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="truncate text-sm font-medium">{group.display_name || group.name}</div>
+                      <div className="truncate text-xs text-muted-foreground">{group.description || group.name}</div>
+                    </div>
+                    <button
+                      type="button"
+                      className={cn("shrink-0 rounded-lg border px-2.5 py-1 text-xs", selected.has(groupPermission) ? "border-primary/50 bg-primary/10 text-primary" : "border-border text-muted-foreground")}
+                      onClick={(event) => {
+                        event.preventDefault();
+                        toggleGroup(group.name);
+                      }}
+                    >
+                      {selected.has(groupPermission) ? "已授权整组" : "授权整组"}
+                    </button>
+                  </div>
+                </summary>
+                {(group.included_tools || []).length > 0 ? (
+                  <div className="mt-3 flex flex-wrap gap-2 border-t border-border/60 pt-3">
+                    {(group.included_tools || []).map((name) => {
+                      const permission = `${groupPermission}/${name}`;
+                      return (
+                        <button
+                          key={name}
+                          type="button"
+                          disabled={selected.has(groupPermission)}
+                          className={cn(
+                            "rounded-lg border px-2.5 py-1 font-mono text-xs disabled:cursor-not-allowed disabled:opacity-50",
+                            selected.has(permission) ? "border-primary/50 bg-primary/10 text-primary" : "border-border text-muted-foreground",
+                          )}
+                          onClick={() => toggle(permission)}
+                        >
+                          {name}
+                        </button>
+                      );
+                    })}
+                  </div>
+                ) : null}
+              </details>
+            );
+          })}
+        </div>
+        {unknown.length > 0 ? (
+          <div className="space-y-2 border-t border-border/60 pt-3">
+            <div className="text-xs text-muted-foreground">当前目录中无法识别的权限（可能来自已移除的 MCP 工具）：</div>
+            <div className="flex flex-wrap gap-2">
+              {unknown.map((permission) => (
+                <button key={permission} type="button" className="rounded-lg border border-amber-500/40 bg-amber-500/5 px-2.5 py-1 font-mono text-xs text-amber-700" onClick={() => toggle(permission)}>
+                  {permission} ×
+                </button>
+              ))}
+            </div>
+          </div>
+        ) : null}
+      </div>
+    </Field>
+  );
+}
+
+function PermissionButton({ active, title, detail, onClick }: { active: boolean; title: string; detail: string; onClick: () => void }) {
+  return (
+    <button type="button" className={cn("rounded-lg border px-3 py-2 text-left", active ? "border-primary/50 bg-primary/10" : "border-border bg-card/45")} onClick={onClick}>
+      <div className={cn("text-sm font-medium", active && "text-primary")}>{title}</div>
+      <div className="mt-0.5 text-xs text-muted-foreground">{detail}</div>
+    </button>
   );
 }
 
@@ -1512,7 +1624,7 @@ function JavaScriptAIDialog({
             <Textarea
               className="min-h-28 text-sm"
               value={instruction}
-              placeholder={kind === "tool" ? "例如：创建一个把 Markdown 表格转换为 JSON 数组的只读工具。" : "例如：调用 execute 工具前拒绝包含 sudo 的命令。"}
+              placeholder={kind === "tool" ? "例如：读取指定工作区文件，提取 Markdown 表格并把累计处理次数持久化。" : "例如：调用 execute 工具前拒绝包含 sudo 的命令。"}
               onChange={(event) => setInstruction(event.target.value)}
             />
           </Field>
@@ -2413,12 +2525,14 @@ function NumberField({
   label,
   value,
   min,
+  max,
   step = 1,
   onChange,
 }: {
   label: string;
   value?: number;
   min?: number;
+  max?: number;
   step?: number;
   onChange: (value: number) => void;
 }) {
@@ -2430,12 +2544,15 @@ function NumberField({
     if (min !== undefined) {
       next = Math.max(min, next);
     }
+	if (max !== undefined) {
+	  next = Math.min(max, next);
+	}
     return next;
   }
 
   return (
     <Field label={label}>
-      <Input type="number" min={min} step={step} value={value ?? 0} onChange={(event) => onChange(parseValue(event.target.value))} />
+      <Input type="number" min={min} max={max} step={step} value={value ?? 0} onChange={(event) => onChange(parseValue(event.target.value))} />
     </Field>
   );
 }

@@ -7,13 +7,14 @@ import (
 	"strings"
 	"sync/atomic"
 
+	"fkteams/internal/app/config"
 	"fkteams/internal/domain/session"
 	runtimelog "fkteams/internal/runtime/log"
 )
 
 const (
-	PermissionStorage     = "storage"
-	PermissionEventNotice = "events:notice"
+	PermissionStorage     = config.JavaScriptPermissionStorage
+	PermissionEventNotice = config.JavaScriptPermissionEventNotice
 )
 
 // ToolCallRequest 描述脚本对已有工具的一次受控调用。

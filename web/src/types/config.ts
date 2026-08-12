@@ -173,6 +173,7 @@ export interface JavaScriptToolConfig {
   enabled?: boolean;
   timeout_ms?: number;
   read_only?: boolean;
+  permissions?: string[];
   parameters?: Record<string, unknown>;
   source?: string;
 }

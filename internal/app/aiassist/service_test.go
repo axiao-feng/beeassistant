@@ -5,6 +5,7 @@ import (
 	"strings"
 	"testing"
 
+	apptools "fkteams/internal/app/tools"
 	domainmessage "fkteams/internal/domain/message"
 	"fkteams/internal/testmodel"
 )
@@ -137,6 +138,7 @@ func TestGenerateJavaScriptToolNormalizesDraft(t *testing.T) {
     "description": "统计文本",
     "timeout_ms": 0,
     "read_only": true,
+	"permissions": ["storage", "tools:file/file_read", "tools:file/unknown", "tools:javascript"],
     "parameters": {"type":"object","properties":{"text":{"type":"string"}}},
     "source": "function execute(input) { return {length: input.text.length}; }"
   }
@@ -148,6 +150,9 @@ func TestGenerateJavaScriptToolNormalizesDraft(t *testing.T) {
 		Kind:        "tool",
 		Instruction: "生成文本统计工具",
 		ExistingIDs: []string{"text_stats"},
+		AvailableToolGroups: []apptools.ToolGroupInfo{{
+			Name: "file", IncludedTools: []string{"file_read"},
+		}},
 	})
 	if err != nil {
 		t.Fatalf("GenerateJavaScript() error = %v", err)
@@ -157,6 +162,9 @@ func TestGenerateJavaScriptToolNormalizesDraft(t *testing.T) {
 	}
 	if got.Tool.Enabled || got.Tool.TimeoutMS != 200 {
 		t.Fatalf("tool defaults = %#v", got.Tool)
+	}
+	if len(got.Tool.Permissions) != 2 || got.Tool.Permissions[0] != "storage" || got.Tool.Permissions[1] != "tools:file/file_read" {
+		t.Fatalf("tool permissions = %#v", got.Tool.Permissions)
 	}
 }
 

@@ -28,6 +28,11 @@ const (
 	maxJavaScriptHookTimeout = 5_000
 )
 
+const (
+	JavaScriptPermissionStorage     = "storage"
+	JavaScriptPermissionEventNotice = "events:notice"
+)
+
 // ==================== 模型池 ====================
 
 const (
@@ -587,7 +592,7 @@ func validateJavaScriptPermissions(id string, permissions []string) error {
 	}
 	seen := make(map[string]struct{}, len(permissions))
 	for _, permission := range permissions {
-		if permission != "storage" && permission != "events:notice" && !validJavaScriptToolPermission(permission) {
+		if permission != JavaScriptPermissionStorage && permission != JavaScriptPermissionEventNotice && !validJavaScriptToolPermission(permission) {
 			return fmt.Errorf("javascript tool %s has invalid permission: %s", id, permission)
 		}
 		if _, exists := seen[permission]; exists {

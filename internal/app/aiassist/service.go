@@ -11,6 +11,7 @@ import (
 	"unicode"
 
 	"fkteams/internal/app/config"
+	apptools "fkteams/internal/app/tools"
 	domainmessage "fkteams/internal/domain/message"
 	runtimeport "fkteams/internal/ports/runtime"
 	modelregistry "fkteams/internal/runtime/model"
@@ -72,11 +73,12 @@ type RewriteTextResponse struct {
 }
 
 type JavaScriptDraftRequest struct {
-	Kind        string                 `json:"kind"`
-	Instruction string                 `json:"instruction"`
-	ExistingIDs []string               `json:"existing_ids,omitempty"`
-	CurrentTool *config.JavaScriptTool `json:"current_tool,omitempty"`
-	CurrentHook *config.JavaScriptHook `json:"current_hook,omitempty"`
+	Kind                string                   `json:"kind"`
+	Instruction         string                   `json:"instruction"`
+	ExistingIDs         []string                 `json:"existing_ids,omitempty"`
+	AvailableToolGroups []apptools.ToolGroupInfo `json:"available_tool_groups,omitempty"`
+	CurrentTool         *config.JavaScriptTool   `json:"current_tool,omitempty"`
+	CurrentHook         *config.JavaScriptHook   `json:"current_hook,omitempty"`
 }
 
 type JavaScriptDraftResponse struct {
@@ -306,6 +308,7 @@ func javaScriptDraftSystemPrompt() string {
     "enabled": false,
     "timeout_ms": 200,
     "read_only": true,
+    "permissions": [],
     "parameters": {"type":"object","properties":{},"required":[]},
     "source": "function execute(input, context) { return ...; }"
   }
@@ -329,7 +332,12 @@ Hook 格式：
 执行环境约束：
 - 只支持同步 JavaScript，不要使用 async、Promise、setTimeout、fetch、require、process、文件系统或 Node.js API。
 - 每次调用使用独立 Runtime，不要依赖全局状态跨调用保存。
-- 工具 execute 的 input 是 parameters 描述的 JSON 对象；context 只包含 tool_name 和 call_id。返回字符串、数字、布尔值、数组或对象。
+- 工具 execute 的 input 是 parameters 描述的 JSON 对象；context 顶层包含 tool_name、call_id、session_id、permissions。返回字符串、数字、布尔值、数组或对象。
+- context.tools.call(group, tool, args) 可同步调用 available_tool_groups 中的工具。必须声明 tools:<group> 或最小化的 tools:<group>/<tool> 权限；禁止调用 javascript 工具组。
+- context.storage 提供 get(key)、set(key,value)、delete(key)、keys()，使用时必须声明 storage 权限。
+- context.events.notice(message, level) 可发送 info、warn、error 通知，使用时必须声明 events:notice 权限。
+- context.log.debug/info/warn/error(value) 始终可用，不需要权限。
+- permissions 只使用 storage、events:notice 或 available_tool_groups 能证明存在的 tools 权限。按最小权限原则生成，不要申请源码未使用的能力。
 - handle 返回 {action, message, payload}；action 只能是 continue、skip、reject。需要改写时，修改 hook.payload 后把它作为 payload 返回。
 - hook.point 可选值：before_run、after_run、on_event、before_tool_call、after_tool_call、before_model_request、after_model_response。
 - before_run payload 为 {input:{context,message}}；on_event 为 {event}；before_tool_call 为 {tool_name,args,meta}；before_model_request 为 {messages,meta}。
@@ -479,7 +487,8 @@ func normalizeJavaScriptDraft(parsed JavaScriptDraftResponse, req JavaScriptDraf
 		item.Description = firstNonEmpty(item.Description, item.Name)
 		item.Source = cleanJavaScriptSource(item.Source)
 		item.Enabled = false
-		item.TimeoutMS = normalizeJavaScriptTimeout(item.TimeoutMS)
+		item.TimeoutMS = normalizeJavaScriptTimeout(item.TimeoutMS, 120_000)
+		item.Permissions = validGeneratedPermissions(item.Permissions, req.AvailableToolGroups)
 		if schemaType, _ := item.Parameters["type"].(string); schemaType != "object" {
 			item.Parameters = map[string]any{
 				"type":       "object",
@@ -500,7 +509,7 @@ func normalizeJavaScriptDraft(parsed JavaScriptDraftResponse, req JavaScriptDraf
 	item.Name = firstNonEmpty(item.Name, item.ID)
 	item.Source = cleanJavaScriptSource(item.Source)
 	item.Enabled = false
-	item.TimeoutMS = normalizeJavaScriptTimeout(item.TimeoutMS)
+	item.TimeoutMS = normalizeJavaScriptTimeout(item.TimeoutMS, 5_000)
 	item.HookPoints = validGeneratedHookPoints(item.HookPoints)
 	if len(item.HookPoints) == 0 {
 		item.HookPoints = []string{"before_tool_call"}
@@ -522,14 +531,44 @@ func uniqueJavaScriptID(value string, used map[string]bool) string {
 	return uniqueSlug(base, used)
 }
 
-func normalizeJavaScriptTimeout(timeoutMS int) int {
+func normalizeJavaScriptTimeout(timeoutMS, maximum int) int {
 	if timeoutMS <= 0 {
 		return 200
 	}
-	if timeoutMS > 5000 {
-		return 5000
+	if timeoutMS > maximum {
+		return maximum
 	}
 	return timeoutMS
+}
+
+func validGeneratedPermissions(permissions []string, groups []apptools.ToolGroupInfo) []string {
+	available := make(map[string]map[string]bool, len(groups))
+	for _, group := range groups {
+		if group.Name == "" || group.Name == "javascript" {
+			continue
+		}
+		tools := make(map[string]bool, len(group.IncludedTools))
+		for _, name := range group.IncludedTools {
+			tools[name] = true
+		}
+		available[group.Name] = tools
+	}
+	seen := make(map[string]bool, len(permissions))
+	result := make([]string, 0, len(permissions))
+	for _, permission := range permissions {
+		permission = strings.TrimSpace(permission)
+		valid := permission == config.JavaScriptPermissionStorage || permission == config.JavaScriptPermissionEventNotice
+		if target, ok := strings.CutPrefix(permission, "tools:"); ok {
+			group, tool, exact := strings.Cut(target, "/")
+			included, exists := available[group]
+			valid = exists && (!exact || tool != "" && included[tool])
+		}
+		if valid && !seen[permission] {
+			seen[permission] = true
+			result = append(result, permission)
+		}
+	}
+	return result
 }
 
 func validGeneratedHookPoints(points []string) []string {

@@ -75,7 +75,7 @@ func (rt *Runtime) GenerateJavaScriptDraftHandler() gin.HandlerFunc {
 		}
 		ctx, cancel := context.WithTimeout(c.Request.Context(), 60*time.Second)
 		defer cancel()
-		enrichJavaScriptDraftRequest(&req, config.Get())
+		enrichJavaScriptDraftRequest(ctx, &req, config.Get(), rt.ToolRegistry)
 		service, err := appaiassist.NewDefault(ctx, rt.ModelRegistry)
 		if err != nil {
 			Fail(c, http.StatusBadRequest, err.Error())
@@ -94,8 +94,14 @@ func (rt *Runtime) GenerateJavaScriptDraftHandler() gin.HandlerFunc {
 	}
 }
 
-func enrichJavaScriptDraftRequest(req *appaiassist.JavaScriptDraftRequest, cfg *config.Config) {
-	if req == nil || cfg == nil || len(req.ExistingIDs) > 0 {
+func enrichJavaScriptDraftRequest(ctx context.Context, req *appaiassist.JavaScriptDraftRequest, cfg *config.Config, registry *apptools.ToolGroupRegistry) {
+	if req == nil || cfg == nil {
+		return
+	}
+	if registry != nil {
+		req.AvailableToolGroups = registry.GetAllToolInfos(ctx)
+	}
+	if len(req.ExistingIDs) > 0 {
 		return
 	}
 	currentID := ""

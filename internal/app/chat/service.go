@@ -53,6 +53,9 @@ func (s *Service) RunTurn(ctx context.Context, req TurnRequest) (*runtimeport.Ru
 	if req.SessionID == "" {
 		return nil, fmt.Errorf("chat turn session ID is empty")
 	}
+	if req.HookBus == nil {
+		req.HookBus = hooks.FromContext(ctx)
+	}
 
 	contextHooks := append([]ContextHook(nil), req.ContextHooks...)
 	if req.ApprovalRegistry != nil {

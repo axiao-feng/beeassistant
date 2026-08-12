@@ -26,6 +26,7 @@ import (
 	bootstrapservices "fkteams/internal/bootstrap/services"
 	bootstrapskills "fkteams/internal/bootstrap/skills"
 	runtimeport "fkteams/internal/ports/runtime"
+	"fkteams/internal/runtime/hooks"
 	"fkteams/internal/runtime/log"
 	modelregistry "fkteams/internal/runtime/model"
 
@@ -81,9 +82,11 @@ func (s *httpService) Start(ctx context.Context) error {
 	toolRegistry, _ := apptools.RegistryFromContext(ctx)
 	agentRegistry, _ := agents.RegistryFromContext(ctx)
 	toolDisplays, _ := toolmeta.RegistryFromContext(ctx)
+	hookBus := hooks.FromContext(ctx)
 	s.runtime = handler.NewRuntime(handler.RuntimeOptions{
 		Runtime:        runtimeAdapter,
 		Interrupt:      interrupt,
+		HookBus:        hookBus,
 		AgentRegistry:  agentRegistry,
 		ToolRegistry:   toolRegistry,
 		ToolDisplays:   toolDisplays,

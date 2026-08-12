@@ -2,11 +2,13 @@ package hooks
 
 import (
 	"context"
-	"fkteams/internal/runtime/log"
 	"fmt"
 	"sort"
 	"sync"
 	"time"
+
+	"fkteams/internal/domain/session"
+	"fkteams/internal/runtime/log"
 )
 
 const defaultTimeout = 3 * time.Second
@@ -15,6 +17,7 @@ type Options struct {
 	Timeout     time.Duration
 	ErrorPolicy ErrorPolicy
 	Priority    int
+	Concurrent  bool
 }
 
 type registeredHandler struct {
@@ -109,6 +112,17 @@ func (b *Bus) Invoke(ctx context.Context, inv Invocation) (Result, error) {
 	if inv.HookPoint == "" && inv.Payload != nil {
 		inv.HookPoint = inv.Payload.HookPoint()
 	}
+	if inv.SessionID == "" {
+		inv.SessionID, _ = session.IDFromContext(ctx)
+	}
+	if payload, ok := inv.Payload.(EventPayload); ok {
+		if inv.RunID == "" {
+			inv.RunID = payload.Event.RunID
+		}
+		if inv.TurnID == "" {
+			inv.TurnID = payload.Event.TurnID
+		}
+	}
 	if b == nil || inv.HookPoint == "" {
 		return Result{Payload: inv.Payload, Action: ActionContinue}, nil
 	}
@@ -169,7 +183,7 @@ func invokeHandler(ctx context.Context, entry registeredHandler, inv Invocation)
 	}
 	hookCtx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
-	if entry.state != nil {
+	if entry.state != nil && !entry.options.Concurrent {
 		select {
 		case entry.state.slot <- struct{}{}:
 		case <-hookCtx.Done():
@@ -186,7 +200,7 @@ func invokeHandler(ctx context.Context, entry registeredHandler, inv Invocation)
 		var result Result
 		var err error
 		defer func() {
-			if entry.state != nil {
+			if entry.state != nil && !entry.options.Concurrent {
 				<-entry.state.slot
 			}
 			if recovered := recover(); recovered != nil {

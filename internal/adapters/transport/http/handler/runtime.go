@@ -22,6 +22,7 @@ import (
 	appskill "fkteams/internal/app/skill"
 	apptools "fkteams/internal/app/tools"
 	runtimeport "fkteams/internal/ports/runtime"
+	"fkteams/internal/runtime/hooks"
 	modelregistry "fkteams/internal/runtime/model"
 )
 
@@ -46,6 +47,7 @@ type Runtime struct {
 	Providers      *modelproviders.Registry
 	Runtime        runtimeport.Runtime
 	Interrupt      runtimeport.InterruptRuntime
+	HookBus        *hooks.Bus
 	ResetChannels  func()
 
 	sessionOperationsMu sync.Mutex
@@ -79,6 +81,7 @@ type RuntimeOptions struct {
 	Providers      *modelproviders.Registry
 	Runtime        runtimeport.Runtime
 	Interrupt      runtimeport.InterruptRuntime
+	HookBus        *hooks.Bus
 	ResetChannels  func()
 }
 
@@ -112,6 +115,7 @@ func NewRuntime(options ...RuntimeOptions) *Runtime {
 		Providers:      opt.Providers,
 		Runtime:        opt.Runtime,
 		Interrupt:      opt.Interrupt,
+		HookBus:        opt.HookBus,
 		ResetChannels:  opt.ResetChannels,
 		shutdownDone:   make(chan struct{}),
 	}
@@ -320,6 +324,7 @@ func (rt *Runtime) withExecutionDependencies(ctx context.Context) context.Contex
 	ctx = apptools.WithRegistry(ctx, rt.ToolRegistry)
 	ctx = toolmeta.WithRegistry(ctx, rt.ToolDisplays)
 	ctx = agents.WithRegistry(ctx, rt.AgentRegistry)
+	ctx = hooks.WithBus(ctx, rt.HookBus)
 	return appschedule.WithService(ctx, rt.Scheduler)
 }
 

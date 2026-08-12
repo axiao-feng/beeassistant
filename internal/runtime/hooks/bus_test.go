@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"fkteams/internal/domain/message"
+	"fkteams/internal/domain/session"
 )
 
 func TestBusInvokesHandlersInPriorityOrder(t *testing.T) {
@@ -62,6 +63,53 @@ func TestBusRejectsMismatchedPayloadPoint(t *testing.T) {
 	})
 	if err == nil || !strings.Contains(err.Error(), "does not match") {
 		t.Fatalf("error = %v, want payload mismatch", err)
+	}
+}
+
+func TestBusAddsSessionIDFromContext(t *testing.T) {
+	bus := NewBus()
+	var got string
+	bus.RegisterFunc("capture", []HookPoint{HookBeforeRun}, func(_ Context, inv Invocation) (Result, error) {
+		got = inv.SessionID
+		return Result{}, nil
+	}, Options{})
+	ctx := session.WithID(context.Background(), "session-1")
+	if _, err := bus.Invoke(ctx, Invocation{HookPoint: HookBeforeRun}); err != nil {
+		t.Fatalf("Invoke() error = %v", err)
+	}
+	if got != "session-1" {
+		t.Fatalf("session id = %q", got)
+	}
+}
+
+func TestBusConcurrentHandlerAllowsParallelCalls(t *testing.T) {
+	bus := NewBus()
+	started := make(chan struct{}, 2)
+	release := make(chan struct{})
+	bus.RegisterFunc("parallel", []HookPoint{HookBeforeRun}, func(_ Context, _ Invocation) (Result, error) {
+		started <- struct{}{}
+		<-release
+		return Result{}, nil
+	}, Options{Concurrent: true, Timeout: time.Second})
+	done := make(chan error, 2)
+	for i := 0; i < 2; i++ {
+		go func() {
+			_, err := bus.Invoke(context.Background(), Invocation{HookPoint: HookBeforeRun})
+			done <- err
+		}()
+	}
+	for i := 0; i < 2; i++ {
+		select {
+		case <-started:
+		case <-time.After(100 * time.Millisecond):
+			t.Fatal("concurrent handler calls were serialized")
+		}
+	}
+	close(release)
+	for i := 0; i < 2; i++ {
+		if err := <-done; err != nil {
+			t.Fatalf("Invoke() error = %v", err)
+		}
 	}
 }
 

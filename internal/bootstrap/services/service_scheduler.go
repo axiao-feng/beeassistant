@@ -12,6 +12,7 @@ import (
 	appschedule "fkteams/internal/app/schedule"
 	apptools "fkteams/internal/app/tools"
 	runtimeport "fkteams/internal/ports/runtime"
+	"fkteams/internal/runtime/hooks"
 	modelregistry "fkteams/internal/runtime/model"
 )
 
@@ -59,6 +60,7 @@ func (s *SchedulerService) Start(ctx context.Context) error {
 	agentRegistry, _ := agents.RegistryFromContext(ctx)
 	models, _ := modelregistry.RegistryFromContext(ctx)
 	tools, _ := apptools.RegistryFromContext(ctx)
+	hookBus := hooks.FromContext(ctx)
 	executor, err := appschedule.NewBackgroundExecutor(appagent.CreateBackgroundTaskRunner, filepath.Join(s.schedulerDir, "tasks"))
 	if err != nil {
 		return fmt.Errorf("initialize scheduler executor: %w", err)
@@ -69,6 +71,7 @@ func (s *SchedulerService) Start(ctx context.Context) error {
 		ctx = agents.WithRegistry(ctx, agentRegistry)
 		ctx = modelregistry.WithRegistry(ctx, models)
 		ctx = apptools.WithRegistry(ctx, tools)
+		ctx = hooks.WithBus(ctx, hookBus)
 		return appschedule.WithService(ctx, appService)
 	})
 	sched.SetExecutor(executor)

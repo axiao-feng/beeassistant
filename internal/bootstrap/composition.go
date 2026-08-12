@@ -4,15 +4,19 @@ package bootstrap
 import (
 	"context"
 	"fmt"
+	"time"
 
+	javascripthooks "fkteams/internal/adapters/hooks/javascript"
 	modelproviders "fkteams/internal/adapters/model/providers"
 	mcpadapter "fkteams/internal/adapters/tools/mcp"
 	agents "fkteams/internal/app/agent/catalog"
 	"fkteams/internal/app/agent/catalog/toolmeta"
+	"fkteams/internal/app/config"
 	apptools "fkteams/internal/app/tools"
 	bootstrapruntimes "fkteams/internal/bootstrap/runtimes"
 	bootstraptools "fkteams/internal/bootstrap/tools"
 	runtimeport "fkteams/internal/ports/runtime"
+	"fkteams/internal/runtime/hooks"
 	modelregistry "fkteams/internal/runtime/model"
 )
 
@@ -26,6 +30,7 @@ type ExecutionDependencies struct {
 	ToolRegistry          *apptools.ToolGroupRegistry
 	ToolDisplayRegistry   *toolmeta.Registry
 	AgentRegistry         *agents.Registry
+	HookBus               *hooks.Bus
 }
 
 // NewExecutionDependencies 创建并连接默认 runtime、模型、工具和智能体注册表。
@@ -42,6 +47,14 @@ func NewExecutionDependencies() (*ExecutionDependencies, error) {
 	if err != nil {
 		return nil, fmt.Errorf("register default tools: %w", err)
 	}
+	hookBus := hooks.NewBus()
+	hookBus.Register(javascripthooks.NewHandler(func() []config.JavaScriptHook {
+		return config.Get().JavaScript.Hooks
+	}), hooks.Options{
+		Timeout:     30 * time.Second,
+		ErrorPolicy: hooks.ErrorFail,
+		Concurrent:  true,
+	})
 
 	return &ExecutionDependencies{
 		Runtime:               runtimeDefaults.Runtime,
@@ -51,6 +64,7 @@ func NewExecutionDependencies() (*ExecutionDependencies, error) {
 		ToolRegistry:          toolRegistry,
 		ToolDisplayRegistry:   toolmeta.NewRegistry(),
 		AgentRegistry:         agents.NewRegistry(),
+		HookBus:               hookBus,
 	}, nil
 }
 
@@ -69,5 +83,6 @@ func (d *ExecutionDependencies) Context(parent context.Context) context.Context 
 	ctx = modelproviders.WithRegistry(ctx, d.ModelProviderRegistry)
 	ctx = apptools.WithRegistry(ctx, d.ToolRegistry)
 	ctx = toolmeta.WithRegistry(ctx, d.ToolDisplayRegistry)
-	return agents.WithRegistry(ctx, d.AgentRegistry)
+	ctx = agents.WithRegistry(ctx, d.AgentRegistry)
+	return hooks.WithBus(ctx, d.HookBus)
 }

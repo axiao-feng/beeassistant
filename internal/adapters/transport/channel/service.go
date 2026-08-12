@@ -12,6 +12,7 @@ import (
 	appschedule "fkteams/internal/app/schedule"
 	apptools "fkteams/internal/app/tools"
 	runtimeport "fkteams/internal/ports/runtime"
+	"fkteams/internal/runtime/hooks"
 	"fkteams/internal/runtime/log"
 	modelregistry "fkteams/internal/runtime/model"
 	"fmt"
@@ -110,8 +111,9 @@ func (s *Service) Start(ctx context.Context) error {
 	models, _ := modelregistry.RegistryFromContext(ctx)
 	tools, _ := apptools.RegistryFromContext(ctx)
 	displays, _ := toolmeta.RegistryFromContext(ctx)
+	hookBus := hooks.FromContext(ctx)
 	for _, bridge := range s.bridges {
-		bridge.SetRuntimeDependencies(runtime, interrupt, agentRegistry, models, tools, displays)
+		bridge.SetRuntimeDependencies(runtime, interrupt, agentRegistry, models, tools, displays, hookBus)
 		bridge.Start(ctx)
 	}
 	log.Printf("[channels] starting all channels...")

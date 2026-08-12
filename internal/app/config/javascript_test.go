@@ -26,3 +26,27 @@ func TestValidateJavaScriptRejectsInvalidToolSchema(t *testing.T) {
 		t.Fatal("ValidateJavaScript() error = nil, want validation error")
 	}
 }
+
+func TestValidateJavaScriptAcceptsHook(t *testing.T) {
+	cfg := &Config{JavaScript: JavaScriptSettings{Hooks: []JavaScriptHook{{
+		ID:          "guard",
+		Name:        "保护规则",
+		HookPoints:  []string{"before_tool_call"},
+		ErrorPolicy: "fail",
+		Source:      `function handle(hook) { return {action: "continue"}; }`,
+	}}}}
+	if err := cfg.ValidateJavaScript(); err != nil {
+		t.Fatalf("ValidateJavaScript() error = %v", err)
+	}
+}
+
+func TestValidateJavaScriptRejectsUnknownHookPoint(t *testing.T) {
+	cfg := &Config{JavaScript: JavaScriptSettings{Hooks: []JavaScriptHook{{
+		ID:         "guard",
+		Name:       "保护规则",
+		HookPoints: []string{"unknown"},
+	}}}}
+	if err := cfg.ValidateJavaScript(); err == nil {
+		t.Fatal("ValidateJavaScript() error = nil, want invalid hook point error")
+	}
+}

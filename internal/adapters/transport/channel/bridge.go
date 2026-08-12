@@ -16,6 +16,7 @@ import (
 	runtimeport "fkteams/internal/ports/runtime"
 	"fkteams/internal/runtime/approval"
 	"fkteams/internal/runtime/events"
+	"fkteams/internal/runtime/hooks"
 	"fkteams/internal/runtime/log"
 	modelregistry "fkteams/internal/runtime/model"
 	"strings"
@@ -73,6 +74,7 @@ type Bridge struct {
 	models    *modelregistry.Registry
 	tools     *apptools.ToolGroupRegistry
 	displays  *toolmeta.Registry
+	hookBus   *hooks.Bus
 	scheduler func() *appschedule.Service
 
 	queueMu   sync.Mutex
@@ -214,7 +216,7 @@ func (b *Bridge) ResetRunner() {
 }
 
 // SetRuntimeDependencies 设置当前通道服务实例使用的 runtime 依赖。
-func (b *Bridge) SetRuntimeDependencies(runtime runtimeport.Runtime, interrupt runtimeport.InterruptRuntime, agentRegistry *agents.Registry, models *modelregistry.Registry, tools *apptools.ToolGroupRegistry, displays *toolmeta.Registry) {
+func (b *Bridge) SetRuntimeDependencies(runtime runtimeport.Runtime, interrupt runtimeport.InterruptRuntime, agentRegistry *agents.Registry, models *modelregistry.Registry, tools *apptools.ToolGroupRegistry, displays *toolmeta.Registry, hookBus *hooks.Bus) {
 	b.runtimeMu.Lock()
 	b.runtime = runtime
 	b.interrupt = interrupt
@@ -222,6 +224,7 @@ func (b *Bridge) SetRuntimeDependencies(runtime runtimeport.Runtime, interrupt r
 	b.models = models
 	b.tools = tools
 	b.displays = displays
+	b.hookBus = hookBus
 	b.runtimeMu.Unlock()
 	b.ResetRunner()
 }
@@ -234,6 +237,7 @@ func (b *Bridge) withRuntimeContext(ctx context.Context) context.Context {
 	models := b.models
 	tools := b.tools
 	displays := b.displays
+	hookBus := b.hookBus
 	b.runtimeMu.RUnlock()
 	ctx = runtimeport.WithRuntime(ctx, runtime)
 	ctx = runtimeport.WithInterruptRuntime(ctx, interrupt)
@@ -241,6 +245,7 @@ func (b *Bridge) withRuntimeContext(ctx context.Context) context.Context {
 	ctx = modelregistry.WithRegistry(ctx, models)
 	ctx = apptools.WithRegistry(ctx, tools)
 	ctx = toolmeta.WithRegistry(ctx, displays)
+	ctx = hooks.WithBus(ctx, hookBus)
 	if b.scheduler != nil {
 		ctx = appschedule.WithService(ctx, b.scheduler())
 	}

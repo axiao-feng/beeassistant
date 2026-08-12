@@ -74,6 +74,7 @@ func (p *Program) run(ctx context.Context, timeout time.Duration, callback func(
 	defer cancel()
 
 	vm := goja.New()
+	vm.SetFieldNameMapper(goja.TagFieldNameMapper("json", true))
 	finished := make(chan struct{})
 	go func() {
 		select {

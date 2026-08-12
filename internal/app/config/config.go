@@ -12,6 +12,7 @@ import (
 	"sync/atomic"
 
 	"fkteams/internal/app/appdata"
+	hookport "fkteams/internal/ports/hooks"
 	"fkteams/internal/runtime/atomicfile"
 
 	"github.com/pelletier/go-toml/v2"
@@ -397,9 +398,22 @@ type JavaScriptTool struct {
 	Source      string         `toml:"source" json:"source"`
 }
 
+// JavaScriptHook 描述一个由 goja 执行的流程 hook。
+type JavaScriptHook struct {
+	ID          string   `toml:"id" json:"id"`
+	Name        string   `toml:"name" json:"name"`
+	Enabled     bool     `toml:"enabled" json:"enabled"`
+	HookPoints  []string `toml:"hook_points" json:"hook_points"`
+	TimeoutMS   int      `toml:"timeout_ms,omitempty" json:"timeout_ms,omitempty"`
+	ErrorPolicy string   `toml:"error_policy,omitempty" json:"error_policy,omitempty"`
+	Priority    int      `toml:"priority,omitempty" json:"priority,omitempty"`
+	Source      string   `toml:"source" json:"source"`
+}
+
 // JavaScriptSettings 保存用户可编辑的 JavaScript 扩展。
 type JavaScriptSettings struct {
 	Tools []JavaScriptTool `toml:"tools" json:"tools"`
+	Hooks []JavaScriptHook `toml:"hooks" json:"hooks"`
 }
 
 // ==================== OpenAI 兼容 API ====================
@@ -511,6 +525,9 @@ func (c *Config) ValidateJavaScript() error {
 	if len(c.JavaScript.Tools) > maxJavaScriptItems {
 		return fmt.Errorf("javascript.tools exceeds the limit of %d", maxJavaScriptItems)
 	}
+	if len(c.JavaScript.Hooks) > maxJavaScriptItems {
+		return fmt.Errorf("javascript.hooks exceeds the limit of %d", maxJavaScriptItems)
+	}
 	toolIDs := make(map[string]struct{}, len(c.JavaScript.Tools))
 	for _, item := range c.JavaScript.Tools {
 		if err := validateJavaScriptItem("javascript tool", item.ID, item.Name, item.Source, item.TimeoutMS); err != nil {
@@ -530,7 +547,46 @@ func (c *Config) ValidateJavaScript() error {
 		}
 		toolIDs[item.ID] = struct{}{}
 	}
+	hookIDs := make(map[string]struct{}, len(c.JavaScript.Hooks))
+	for _, item := range c.JavaScript.Hooks {
+		if err := validateJavaScriptItem("javascript hook", item.ID, item.Name, item.Source, item.TimeoutMS); err != nil {
+			return err
+		}
+		if !validJavaScriptID(item.ID) {
+			return fmt.Errorf("javascript hook id %q must start with a letter and contain only letters, digits, underscores or hyphens", item.ID)
+		}
+		if len(item.HookPoints) == 0 {
+			return fmt.Errorf("javascript hook %s requires at least one hook point", item.ID)
+		}
+		for _, point := range item.HookPoints {
+			if !validJavaScriptHookPoint(point) {
+				return fmt.Errorf("javascript hook %s has invalid hook point: %s", item.ID, point)
+			}
+		}
+		if item.ErrorPolicy != "" && item.ErrorPolicy != "ignore" && item.ErrorPolicy != "warn" && item.ErrorPolicy != "fail" {
+			return fmt.Errorf("javascript hook %s error_policy must be ignore, warn or fail", item.ID)
+		}
+		if _, exists := hookIDs[item.ID]; exists {
+			return fmt.Errorf("duplicate javascript hook id: %s", item.ID)
+		}
+		hookIDs[item.ID] = struct{}{}
+	}
 	return nil
+}
+
+func validJavaScriptHookPoint(point string) bool {
+	switch hookport.HookPoint(point) {
+	case hookport.HookBeforeRun,
+		hookport.HookAfterRun,
+		hookport.HookOnEvent,
+		hookport.HookBeforeToolCall,
+		hookport.HookAfterToolCall,
+		hookport.HookBeforeModelRequest,
+		hookport.HookAfterModelResponse:
+		return true
+	default:
+		return false
+	}
 }
 
 func validateJavaScriptItem(kind, id, name, source string, timeoutMS int) error {
@@ -684,6 +740,10 @@ func cloneConfig(cfg *Config) *Config {
 	cloned.JavaScript.Tools = append([]JavaScriptTool(nil), cfg.JavaScript.Tools...)
 	for i := range cloned.JavaScript.Tools {
 		cloned.JavaScript.Tools[i].Parameters = cloneAnyMap(cfg.JavaScript.Tools[i].Parameters)
+	}
+	cloned.JavaScript.Hooks = append([]JavaScriptHook(nil), cfg.JavaScript.Hooks...)
+	for i := range cloned.JavaScript.Hooks {
+		cloned.JavaScript.Hooks[i].HookPoints = append([]string(nil), cfg.JavaScript.Hooks[i].HookPoints...)
 	}
 	return &cloned
 }
@@ -978,6 +1038,23 @@ func GenerateExample() error {
   const text = String(input.text || "");
   const words = text.trim() ? text.trim().split(/\s+/).length : 0;
   return { characters: Array.from(text).length, words };
+}`,
+				},
+			},
+			Hooks: []JavaScriptHook{
+				{
+					ID:          "block_dangerous_command",
+					Name:        "阻止危险命令",
+					Enabled:     false,
+					HookPoints:  []string{"before_tool_call"},
+					TimeoutMS:   200,
+					ErrorPolicy: "fail",
+					Source: `function handle(hook) {
+  const payload = hook.payload;
+  if (payload.tool_name === "execute" && /rm\s+-rf/.test(payload.args)) {
+    return { action: "reject", message: "dangerous command is blocked" };
+  }
+  return { action: "continue" };
 }`,
 				},
 			},

@@ -9,6 +9,7 @@ import (
 	"fkteams/internal/app/agent/catalog/toolmeta"
 	apptools "fkteams/internal/app/tools"
 	runtimeport "fkteams/internal/ports/runtime"
+	"fkteams/internal/runtime/hooks"
 	modelregistry "fkteams/internal/runtime/model"
 )
 
@@ -40,6 +41,9 @@ func TestExecutionDependenciesContextBindsDefaults(t *testing.T) {
 	assertSameDependency(t, "tool display registry", toolDisplays, ok, dependencies.ToolDisplayRegistry)
 	agentRegistry, ok := agents.RegistryFromContext(ctx)
 	assertSameDependency(t, "agent registry", agentRegistry, ok, dependencies.AgentRegistry)
+	if hookBus := hooks.FromContext(ctx); hookBus != dependencies.HookBus {
+		t.Fatalf("hook bus = %p, want %p", hookBus, dependencies.HookBus)
+	}
 }
 
 func TestExecutionDependenciesContextHandlesNil(t *testing.T) {

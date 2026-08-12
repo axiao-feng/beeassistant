@@ -9,6 +9,7 @@ import (
 	"fkteams/internal/domain/message"
 	runtimeport "fkteams/internal/ports/runtime"
 	"fkteams/internal/runtime/approval"
+	"fkteams/internal/runtime/hooks"
 )
 
 func TestRunTurnDelegatesToRunnerAndPublishesEvents(t *testing.T) {
@@ -74,6 +75,29 @@ func TestRunTurnRecordsEventsBeforePublishing(t *testing.T) {
 	}
 	if len(calls) != 2 || calls[0] != "record" || calls[1] != "publish" {
 		t.Fatalf("event calls = %#v, want record then publish", calls)
+	}
+}
+
+func TestRunTurnUsesHookBusFromContext(t *testing.T) {
+	runner := &fakeRunner{}
+	bus := hooks.NewBus()
+	bus.RegisterFunc("rewrite", []hooks.HookPoint{hooks.HookBeforeRun}, func(_ hooks.Context, inv hooks.Invocation) (hooks.Result, error) {
+		payload := inv.Payload.(hooks.BeforeRunPayload)
+		payload.Input.Message.Content = "rewritten"
+		return hooks.Result{Payload: payload}, nil
+	}, hooks.Options{})
+	ctx := hooks.WithBus(context.Background(), bus)
+
+	_, err := NewService().RunTurn(ctx, TurnRequest{
+		SessionID: "session-1",
+		Runner:    runner,
+		Input:     message.TurnInput{Message: message.Message{Role: message.RoleUser, Content: "original"}},
+	})
+	if err != nil {
+		t.Fatalf("RunTurn() error = %v", err)
+	}
+	if runner.input.Message.Content != "rewritten" {
+		t.Fatalf("runner input = %q", runner.input.Message.Content)
 	}
 }
 

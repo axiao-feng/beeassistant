@@ -71,6 +71,20 @@ type RewriteTextResponse struct {
 	Text string `json:"text"`
 }
 
+type JavaScriptDraftRequest struct {
+	Kind        string                 `json:"kind"`
+	Instruction string                 `json:"instruction"`
+	ExistingIDs []string               `json:"existing_ids,omitempty"`
+	CurrentTool *config.JavaScriptTool `json:"current_tool,omitempty"`
+	CurrentHook *config.JavaScriptHook `json:"current_hook,omitempty"`
+}
+
+type JavaScriptDraftResponse struct {
+	Kind string                 `json:"kind"`
+	Tool *config.JavaScriptTool `json:"tool,omitempty"`
+	Hook *config.JavaScriptHook `json:"hook,omitempty"`
+}
+
 func New(model runtimeport.ChatModel) *Service {
 	return &Service{model: model}
 }
@@ -181,6 +195,35 @@ func (s *Service) RewriteText(ctx context.Context, req RewriteTextRequest) (Rewr
 	return parsed, nil
 }
 
+// GenerateJavaScript 根据自然语言生成可供 goja 执行的工具或 hook 草稿。
+func (s *Service) GenerateJavaScript(ctx context.Context, req JavaScriptDraftRequest) (JavaScriptDraftResponse, error) {
+	if s == nil || s.model == nil {
+		return JavaScriptDraftResponse{}, fmt.Errorf("ai assist model is not configured")
+	}
+	req.Kind = strings.TrimSpace(req.Kind)
+	req.Instruction = strings.TrimSpace(req.Instruction)
+	if req.Kind != "tool" && req.Kind != "hook" {
+		return JavaScriptDraftResponse{}, fmt.Errorf("javascript draft kind must be tool or hook")
+	}
+	if req.Instruction == "" {
+		return JavaScriptDraftResponse{}, fmt.Errorf("instruction is required")
+	}
+
+	resp, err := s.model.Generate(ctx, []domainmessage.Message{
+		{Role: domainmessage.RoleSystem, Content: javaScriptDraftSystemPrompt()},
+		{Role: domainmessage.RoleUser, Content: marshalPromptPayload(req)},
+	})
+	if err != nil {
+		return JavaScriptDraftResponse{}, err
+	}
+
+	var parsed JavaScriptDraftResponse
+	if err := decodeJSONResponse(resp.Content, &parsed); err != nil {
+		return JavaScriptDraftResponse{}, fmt.Errorf("decode javascript draft: %w", err)
+	}
+	return normalizeJavaScriptDraft(parsed, req)
+}
+
 func agentDraftSystemPrompt() string {
 	return strings.TrimSpace(`
 你是 fkteams 的智能体配置助手。根据用户要求生成一个或多个自定义智能体草稿。
@@ -245,6 +288,54 @@ JSON 格式必须是：
 - 如果是系统提示词，输出必须可以直接作为系统提示词使用。
 - 如果是描述，保持简洁、准确、适合界面展示。
 - 不要添加用户没有要求的敏感信息、密钥、账号或密码。
+`)
+}
+
+func javaScriptDraftSystemPrompt() string {
+	return strings.TrimSpace(`
+你是 fkteams 的 JavaScript 扩展生成器。根据用户要求生成一个可由 dop251/goja 同步执行的工具或流程 hook。
+必须只返回 JSON，不要返回 Markdown，不要解释，也不要把源码放进代码围栏。
+
+工具格式：
+{
+  "kind": "tool",
+  "tool": {
+    "id": "lower_snake_case_id",
+    "name": "展示名称",
+    "description": "供模型理解用途和调用时机的准确描述",
+    "enabled": false,
+    "timeout_ms": 200,
+    "read_only": true,
+    "parameters": {"type":"object","properties":{},"required":[]},
+    "source": "function execute(input, context) { return ...; }"
+  }
+}
+
+Hook 格式：
+{
+  "kind": "hook",
+  "hook": {
+    "id": "lower_snake_case_id",
+    "name": "展示名称",
+    "enabled": false,
+    "hook_points": ["before_tool_call"],
+    "timeout_ms": 200,
+    "error_policy": "fail",
+    "priority": 100,
+    "source": "function handle(hook) { return {action: 'continue'}; }"
+  }
+}
+
+执行环境约束：
+- 只支持同步 JavaScript，不要使用 async、Promise、setTimeout、fetch、require、process、文件系统或 Node.js API。
+- 每次调用使用独立 Runtime，不要依赖全局状态跨调用保存。
+- 工具 execute 的 input 是 parameters 描述的 JSON 对象；context 只包含 tool_name 和 call_id。返回字符串、数字、布尔值、数组或对象。
+- handle 返回 {action, message, payload}；action 只能是 continue、skip、reject。需要改写时，修改 hook.payload 后把它作为 payload 返回。
+- hook.point 可选值：before_run、after_run、on_event、before_tool_call、after_tool_call、before_model_request、after_model_response。
+- before_run payload 为 {input:{context,message}}；on_event 为 {event}；before_tool_call 为 {tool_name,args,meta}；before_model_request 为 {messages,meta}。
+- after_run、after_tool_call、after_model_response 只用于观察，返回的 payload 不会改写已发生的结果。
+- args 是 JSON 字符串，改写工具参数时必须再次 JSON.stringify。
+- 不要生成密钥、密码或假设存在未声明的宿主 API。
 `)
 }
 
@@ -368,6 +459,111 @@ func normalizeSkillDraft(item SkillDraft, req SkillDraftRequest) SkillDraft {
 		item.Content = defaultSkillDraftContent(item.Name, item.Description)
 	}
 	return item
+}
+
+func normalizeJavaScriptDraft(parsed JavaScriptDraftResponse, req JavaScriptDraftRequest) (JavaScriptDraftResponse, error) {
+	used := make(map[string]bool)
+	for _, id := range req.ExistingIDs {
+		if trimmed := strings.TrimSpace(id); trimmed != "" {
+			used[trimmed] = true
+		}
+	}
+	parsed.Kind = req.Kind
+	if req.Kind == "tool" {
+		if parsed.Tool == nil {
+			return JavaScriptDraftResponse{}, fmt.Errorf("model did not return a javascript tool")
+		}
+		item := *parsed.Tool
+		item.ID = uniqueJavaScriptID(firstNonEmpty(item.ID, item.Name, "custom_tool"), used)
+		item.Name = firstNonEmpty(item.Name, item.ID)
+		item.Description = firstNonEmpty(item.Description, item.Name)
+		item.Source = cleanJavaScriptSource(item.Source)
+		item.Enabled = false
+		item.TimeoutMS = normalizeJavaScriptTimeout(item.TimeoutMS)
+		if schemaType, _ := item.Parameters["type"].(string); schemaType != "object" {
+			item.Parameters = map[string]any{
+				"type":       "object",
+				"properties": map[string]any{},
+			}
+		}
+		if item.Source == "" {
+			return JavaScriptDraftResponse{}, fmt.Errorf("model returned empty javascript tool source")
+		}
+		return JavaScriptDraftResponse{Kind: "tool", Tool: &item}, nil
+	}
+
+	if parsed.Hook == nil {
+		return JavaScriptDraftResponse{}, fmt.Errorf("model did not return a javascript hook")
+	}
+	item := *parsed.Hook
+	item.ID = uniqueJavaScriptID(firstNonEmpty(item.ID, item.Name, "custom_hook"), used)
+	item.Name = firstNonEmpty(item.Name, item.ID)
+	item.Source = cleanJavaScriptSource(item.Source)
+	item.Enabled = false
+	item.TimeoutMS = normalizeJavaScriptTimeout(item.TimeoutMS)
+	item.HookPoints = validGeneratedHookPoints(item.HookPoints)
+	if len(item.HookPoints) == 0 {
+		item.HookPoints = []string{"before_tool_call"}
+	}
+	if item.ErrorPolicy != "ignore" && item.ErrorPolicy != "warn" && item.ErrorPolicy != "fail" {
+		item.ErrorPolicy = "fail"
+	}
+	if item.Source == "" {
+		return JavaScriptDraftResponse{}, fmt.Errorf("model returned empty javascript hook source")
+	}
+	return JavaScriptDraftResponse{Kind: "hook", Hook: &item}, nil
+}
+
+func uniqueJavaScriptID(value string, used map[string]bool) string {
+	base := slugify(value)
+	if base == "" || base[0] < 'a' || base[0] > 'z' {
+		base = "js_" + base
+	}
+	return uniqueSlug(base, used)
+}
+
+func normalizeJavaScriptTimeout(timeoutMS int) int {
+	if timeoutMS <= 0 {
+		return 200
+	}
+	if timeoutMS > 5000 {
+		return 5000
+	}
+	return timeoutMS
+}
+
+func validGeneratedHookPoints(points []string) []string {
+	valid := map[string]bool{
+		"before_run":           true,
+		"after_run":            true,
+		"on_event":             true,
+		"before_tool_call":     true,
+		"after_tool_call":      true,
+		"before_model_request": true,
+		"after_model_response": true,
+	}
+	seen := make(map[string]bool)
+	result := make([]string, 0, len(points))
+	for _, point := range points {
+		point = strings.TrimSpace(point)
+		if valid[point] && !seen[point] {
+			seen[point] = true
+			result = append(result, point)
+		}
+	}
+	return result
+}
+
+func cleanJavaScriptSource(source string) string {
+	source = strings.TrimSpace(source)
+	if strings.HasPrefix(source, "```") && strings.HasSuffix(source, "```") {
+		lines := strings.Split(source, "\n")
+		if len(lines) >= 3 {
+			lines = lines[1 : len(lines)-1]
+			source = strings.TrimSpace(strings.Join(lines, "\n"))
+		}
+	}
+	return source
 }
 
 func defaultSkillDraftContent(name, description string) string {

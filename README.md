@@ -16,7 +16,7 @@
 - **真正的多智能体协作**：协调者按任务调度代码、研究、分析、远程运维等专业智能体，支持团队、深度和圆桌讨论模式。
 - **多入口一致体验**：Web、CLI、OpenAI 兼容 API、Discord、QQ 和微信共享同一套会话与执行能力。
 - **面向长任务设计**：支持后台执行、断线恢复、运行中转向与续问队列，并可随时查看成员进度和工具调用。
-- **能力扩展灵活**：内置文件、命令、搜索、文档、表格、Git、SSH 等工具，可通过 MCP、Skills、自定义智能体和工作区规则继续扩展。
+- **能力扩展灵活**：内置文件、命令、搜索、文档、表格、Git、SSH 等工具，可通过 MCP、Skills、JavaScript、自定义智能体和工作区规则继续扩展。
 - **从对话到自动化**：支持多模态输入、长期记忆、定时任务、文件分享和独立智能体执行。
 - **本地数据与安全边界**：会话、配置和工作区默认保存在本地；高风险工具支持权限策略、人工确认和执行审计。
 
@@ -73,6 +73,7 @@ CLI 也支持直接查询、管道输入、恢复会话和调用指定智能体�
 
 - 使用 [Skills](./docs/skills.md) 为智能体提供可复用的领域知识和工作流程。
 - 通过 [MCP](./docs/mcp.md) 接入外部工具和服务。
+- 在 Web 配置页中手写 JavaScript 或让 AI 生成脚本，注册[自定义工具与流程 Hooks](./docs/javascript.md)。
 - 创建[自定义智能体](./docs/custom-agents.md)，组合专属模型、提示词和工具。
 - 使用工作区 `AGENTS.md` 为整个项目提供统一约定。
 
@@ -96,7 +97,7 @@ make native
 | --- | --- |
 | 入门与配置 | [使用指南](./docs/usage.md) · [配置指南](./docs/configuration.md) |
 | 智能体协作 | [自定义智能体](./docs/custom-agents.md) · [圆桌会议](./docs/roundtable.md) |
-| 能力扩展 | [Skills](./docs/skills.md) · [MCP](./docs/mcp.md) · [消息通道](./docs/channels.md) |
+| 能力扩展 | [Skills](./docs/skills.md) · [MCP](./docs/mcp.md) · [JavaScript 扩展](./docs/javascript.md) · [消息通道](./docs/channels.md) |
 | 集成与部署 | [API](./docs/api/README.md) · [部署指南](./docs/deployment.md) |
 | 设计与安全 | [架构设计](./docs/architecture.md) · [事件协议](./docs/events.md) · [安全说明](./docs/security.md) |
 
@@ -106,4 +107,4 @@ make native
 
 ## 致谢
 
-fkteams 基于 [CloudWeGo Eino](https://github.com/cloudwego/eino)、[Bubble Tea](https://github.com/charmbracelet/bubbletea)、[Pterm](https://github.com/pterm/pterm) 和 [MCP Go](https://github.com/mark3labs/mcp-go) 等优秀开源项目构建。
+fkteams 基于 [CloudWeGo Eino](https://github.com/cloudwego/eino)、[goja](https://github.com/dop251/goja)、[Bubble Tea](https://github.com/charmbracelet/bubbletea)、[Pterm](https://github.com/pterm/pterm) 和 [MCP Go](https://github.com/mark3labs/mcp-go) 等优秀开源项目构建。

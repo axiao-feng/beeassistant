@@ -125,3 +125,67 @@ func TestGenerateAgentsSendsInstructionToModel(t *testing.T) {
 		t.Fatalf("input payload = %q, want instruction", calls[0].Input[1].Content)
 	}
 }
+
+func TestGenerateJavaScriptToolNormalizesDraft(t *testing.T) {
+	model := testmodel.New(domainmessage.Message{
+		Role: domainmessage.RoleAssistant,
+		Content: `{
+  "kind": "tool",
+  "tool": {
+    "id": "Text Stats",
+    "name": "文本统计",
+    "description": "统计文本",
+    "timeout_ms": 0,
+    "read_only": true,
+    "parameters": {"type":"object","properties":{"text":{"type":"string"}}},
+    "source": "function execute(input) { return {length: input.text.length}; }"
+  }
+}`,
+	})
+	service := New(model)
+
+	got, err := service.GenerateJavaScript(context.Background(), JavaScriptDraftRequest{
+		Kind:        "tool",
+		Instruction: "生成文本统计工具",
+		ExistingIDs: []string{"text_stats"},
+	})
+	if err != nil {
+		t.Fatalf("GenerateJavaScript() error = %v", err)
+	}
+	if got.Tool == nil || got.Tool.ID != "text_stats_2" {
+		t.Fatalf("tool = %#v", got.Tool)
+	}
+	if got.Tool.Enabled || got.Tool.TimeoutMS != 200 {
+		t.Fatalf("tool defaults = %#v", got.Tool)
+	}
+}
+
+func TestGenerateJavaScriptHookFiltersHookPoints(t *testing.T) {
+	model := testmodel.New(domainmessage.Message{
+		Role: domainmessage.RoleAssistant,
+		Content: `{
+  "kind": "hook",
+  "hook": {
+    "id": "guard",
+    "name": "保护规则",
+    "hook_points": ["before_tool_call", "unknown"],
+    "source": "function handle(hook) { return {action: 'continue'}; }"
+  }
+}`,
+	})
+	service := New(model)
+
+	got, err := service.GenerateJavaScript(context.Background(), JavaScriptDraftRequest{
+		Kind:        "hook",
+		Instruction: "生成保护规则",
+	})
+	if err != nil {
+		t.Fatalf("GenerateJavaScript() error = %v", err)
+	}
+	if got.Hook == nil || len(got.Hook.HookPoints) != 1 || got.Hook.HookPoints[0] != "before_tool_call" {
+		t.Fatalf("hook = %#v", got.Hook)
+	}
+	if got.Hook.ErrorPolicy != "fail" {
+		t.Fatalf("error policy = %q", got.Hook.ErrorPolicy)
+	}
+}

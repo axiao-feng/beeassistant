@@ -15,7 +15,7 @@ func DefaultDefinition(agentTools ...runtimeport.Tool) common.Definition {
 		TemplateVars: map[string]any{
 			"workspace_dir": common.WorkspaceDir(),
 		},
-		ToolNames: []string{"todo", "file", "command", "scheduler", "ask"},
+		ToolNames: []string{"todo", "file", "command", "scheduler", "ask", "javascript"},
 		Tools:     agentTools,
 	}
 }

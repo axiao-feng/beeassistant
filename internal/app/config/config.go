@@ -599,8 +599,8 @@ func validateJavaScriptItem(kind, id, name, source string, timeoutMS int) error 
 	if len(source) > maxJavaScriptSourceBytes {
 		return fmt.Errorf("%s %s source exceeds %d bytes", kind, id, maxJavaScriptSourceBytes)
 	}
-	if timeoutMS < 0 || timeoutMS > 5000 {
-		return fmt.Errorf("%s %s timeout_ms must be between 0 and 5000", kind, id)
+	if (timeoutMS != 0 && timeoutMS < 10) || timeoutMS > 5000 {
+		return fmt.Errorf("%s %s timeout_ms must be 0 or between 10 and 5000", kind, id)
 	}
 	return nil
 }
@@ -899,7 +899,7 @@ func GenerateExample() error {
 					Name:        "协调者",
 					Description: "核心工程智能体，直接完成常规工程任务，并按需指派专业成员。",
 					Prompt:      "",
-					Tools:       []string{"todo", "file", "command", "scheduler", "ask"},
+					Tools:       []string{"todo", "file", "command", "scheduler", "ask", "javascript"},
 					Enabled:     true,
 				},
 				{

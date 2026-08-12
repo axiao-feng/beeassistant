@@ -6,6 +6,8 @@ import (
 	"net/http"
 	"time"
 
+	javascripthooks "fkteams/internal/adapters/hooks/javascript"
+	javascripttool "fkteams/internal/adapters/tools/javascript"
 	appaiassist "fkteams/internal/app/aiassist"
 	"fkteams/internal/app/config"
 	appskill "fkteams/internal/app/skill"
@@ -62,6 +64,81 @@ func (rt *Runtime) GenerateSkillDraftHandler() gin.HandlerFunc {
 		}
 		OK(c, resp)
 	}
+}
+
+func (rt *Runtime) GenerateJavaScriptDraftHandler() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		var req appaiassist.JavaScriptDraftRequest
+		if err := c.ShouldBindJSON(&req); err != nil {
+			Fail(c, http.StatusBadRequest, "invalid request: "+err.Error())
+			return
+		}
+		ctx, cancel := context.WithTimeout(c.Request.Context(), 60*time.Second)
+		defer cancel()
+		enrichJavaScriptDraftRequest(&req, config.Get())
+		service, err := appaiassist.NewDefault(ctx, rt.ModelRegistry)
+		if err != nil {
+			Fail(c, http.StatusBadRequest, err.Error())
+			return
+		}
+		resp, err := service.GenerateJavaScript(ctx, req)
+		if err != nil {
+			failAIAssistError(c, err)
+			return
+		}
+		if err := validateJavaScriptDraft(resp); err != nil {
+			Fail(c, http.StatusBadRequest, err.Error())
+			return
+		}
+		OK(c, resp)
+	}
+}
+
+func enrichJavaScriptDraftRequest(req *appaiassist.JavaScriptDraftRequest, cfg *config.Config) {
+	if req == nil || cfg == nil || len(req.ExistingIDs) > 0 {
+		return
+	}
+	currentID := ""
+	if req.Kind == "tool" && req.CurrentTool != nil {
+		currentID = req.CurrentTool.ID
+	}
+	if req.Kind == "hook" && req.CurrentHook != nil {
+		currentID = req.CurrentHook.ID
+	}
+	if req.Kind == "tool" {
+		for _, item := range cfg.JavaScript.Tools {
+			if item.ID != "" && item.ID != currentID {
+				req.ExistingIDs = append(req.ExistingIDs, item.ID)
+			}
+		}
+		return
+	}
+	for _, item := range cfg.JavaScript.Hooks {
+		if item.ID != "" && item.ID != currentID {
+			req.ExistingIDs = append(req.ExistingIDs, item.ID)
+		}
+	}
+}
+
+func validateJavaScriptDraft(resp appaiassist.JavaScriptDraftResponse) error {
+	cfg := &config.Config{}
+	if resp.Tool != nil {
+		tool := *resp.Tool
+		tool.Enabled = true
+		cfg.JavaScript.Tools = []config.JavaScriptTool{tool}
+	}
+	if resp.Hook != nil {
+		hook := *resp.Hook
+		hook.Enabled = true
+		cfg.JavaScript.Hooks = []config.JavaScriptHook{hook}
+	}
+	if err := cfg.ValidateJavaScript(); err != nil {
+		return err
+	}
+	if err := javascripttool.ValidateDefinitions(cfg.JavaScript.Tools); err != nil {
+		return err
+	}
+	return javascripthooks.ValidateDefinitions(cfg.JavaScript.Hooks)
 }
 
 func enrichSkillDraftRequest(req *appaiassist.SkillDraftRequest) {

@@ -18,6 +18,7 @@
 | [圆桌会议模式](./roundtable.md) | 多智能体讨论的使用和配置 |
 | [Skills 指南](./skills.md) | 安装、创建和管理技能 |
 | [MCP 工具集成](./mcp.md) | 接入 MCP 服务和外部工具 |
+| [JavaScript 扩展](./javascript.md) | 在 Web 中创建工具和流程 Hooks |
 | [聊天通道](./channels.md) | 配置 Discord、QQ 和微信通道 |
 
 ## 核心能力

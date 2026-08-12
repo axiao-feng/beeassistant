@@ -5,6 +5,7 @@ import {
   Check,
   ChevronDown,
   Copy,
+  FileCode2,
   Database,
   KeyRound,
   Layers,
@@ -21,7 +22,7 @@ import {
   X,
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { generateAgentDrafts, rewriteText } from "@/api/ai";
+import { generateAgentDrafts, generateJavaScriptDraft, rewriteText } from "@/api/ai";
 import { isAbortError } from "@/api/client";
 import { getConfig, getToolCatalog, saveConfig } from "@/api/config";
 import { listProviderModels } from "@/api/providers";
@@ -43,6 +44,8 @@ import type {
   ChannelQQConfig,
   ChannelWeixinConfig,
   DeepConfig,
+  JavaScriptHookConfig,
+  JavaScriptToolConfig,
   MCPServerConfig,
   ModelConfig,
   ServerAuthConfig,
@@ -50,7 +53,7 @@ import type {
   ToolInfo,
 } from "@/types/config";
 
-type ConfigTab = "models" | "server" | "agents" | "roundtable" | "deep" | "memory" | "channels" | "permissions" | "tools" | "other";
+type ConfigTab = "models" | "server" | "agents" | "roundtable" | "deep" | "memory" | "channels" | "permissions" | "tools" | "javascript" | "other";
 
 const tabs: Array<{ key: ConfigTab; label: string; icon: typeof Bot }> = [
   { key: "models", label: "模型", icon: Bot },
@@ -62,6 +65,7 @@ const tabs: Array<{ key: ConfigTab; label: string; icon: typeof Bot }> = [
   { key: "channels", label: "通道", icon: MessageSquare },
   { key: "permissions", label: "权限", icon: KeyRound },
   { key: "tools", label: "工具", icon: Wrench },
+  { key: "javascript", label: "脚本", icon: FileCode2 },
   { key: "other", label: "其他", icon: Cable },
 ];
 
@@ -75,6 +79,7 @@ const knownTopLevelConfigKeys = new Set([
   "openai_api",
   "roundtable",
   "deep",
+  "javascript",
 ]);
 
 export function ConfigPanel() {
@@ -206,6 +211,7 @@ export function ConfigPanel() {
         {activeTab === "channels" ? <ChannelsTab draft={draft} updateDraft={updateDraft} /> : null}
         {activeTab === "permissions" ? <PermissionsTab draft={draft} updateDraft={updateDraft} autoSaveDraft={(next) => persistConfig(next, "权限配置已保存")} saving={saving} /> : null}
         {activeTab === "tools" ? <ToolsTab draft={draft} updateDraft={updateDraft} /> : null}
+        {activeTab === "javascript" ? <JavaScriptTab draft={draft} updateDraft={updateDraft} /> : null}
         {activeTab === "other" ? <OtherTab draft={draft} toolsCount={tools.length} /> : null}
       </div>
     </div>
@@ -1141,6 +1147,403 @@ function ToolInfoCard({ tool }: { tool: ToolInfo }) {
   );
 }
 
+const hookPointOptions = [
+  "before_run",
+  "after_run",
+  "on_event",
+  "before_tool_call",
+  "after_tool_call",
+  "before_model_request",
+  "after_model_response",
+];
+
+type JavaScriptDialogState = { kind: "tool" | "hook"; index?: number };
+
+function JavaScriptTab({ draft, updateDraft }: EditorProps) {
+  const tools = draft.javascript?.tools || [];
+  const hooks = draft.javascript?.hooks || [];
+  const [dialog, setDialog] = useState<JavaScriptDialogState | null>(null);
+
+  function addTool() {
+    updateDraft((next) => {
+      const items = next.javascript?.tools || [];
+      next.javascript = {
+        ...(next.javascript || {}),
+        tools: [
+          ...items,
+          {
+            id: uniqueJavaScriptID(items.map((item) => item.id), "custom_tool"),
+            name: "自定义工具",
+            description: "",
+            enabled: false,
+            timeout_ms: 200,
+            read_only: true,
+            parameters: { type: "object", properties: {} },
+            source: "function execute(input, context) {\n  return input;\n}",
+          },
+        ],
+      };
+    });
+  }
+
+  function addHook() {
+    updateDraft((next) => {
+      const items = next.javascript?.hooks || [];
+      next.javascript = {
+        ...(next.javascript || {}),
+        hooks: [
+          ...items,
+          {
+            id: uniqueJavaScriptID(items.map((item) => item.id), "custom_hook"),
+            name: "自定义 Hook",
+            enabled: false,
+            hook_points: ["before_tool_call"],
+            timeout_ms: 200,
+            error_policy: "fail",
+            priority: 100,
+            source: "function handle(hook) {\n  return { action: \"continue\" };\n}",
+          },
+        ],
+      };
+    });
+  }
+
+  function applyAIDraft(value: JavaScriptToolConfig | JavaScriptHookConfig) {
+    if (!dialog) return;
+    updateDraft((next) => {
+      if (dialog.kind === "tool") {
+        const items = [...(next.javascript?.tools || [])];
+        if (dialog.index === undefined) items.push(value as JavaScriptToolConfig);
+        else items[dialog.index] = value as JavaScriptToolConfig;
+        next.javascript = { ...(next.javascript || {}), tools: items };
+        return;
+      }
+      const items = [...(next.javascript?.hooks || [])];
+      if (dialog.index === undefined) items.push(value as JavaScriptHookConfig);
+      else items[dialog.index] = value as JavaScriptHookConfig;
+      next.javascript = { ...(next.javascript || {}), hooks: items };
+    });
+    setDialog(null);
+  }
+
+  const current = dialog?.kind === "tool" ? (dialog.index === undefined ? undefined : tools[dialog.index]) : dialog?.index === undefined ? undefined : hooks[dialog.index];
+  const existingIDs = (dialog?.kind === "tool" ? tools : hooks)
+    .filter((_, index) => index !== dialog?.index)
+    .map((item) => item.id || "")
+    .filter(Boolean);
+
+  return (
+    <div className="space-y-4">
+      <Panel>
+        <SectionHeader icon={FileCode2} title="JavaScript 工具" description="用 goja 注册模型可发现、可调用的新工具。脚本只能使用同步 JavaScript 和传入的 JSON 数据。">
+          <div className="flex flex-wrap gap-2">
+            <Button variant="outline" onClick={() => setDialog({ kind: "tool" })}>
+              <Sparkles className="h-4 w-4" />
+              AI 生成工具
+            </Button>
+            <Button onClick={addTool}>
+              <Plus className="h-4 w-4" />
+              手动添加
+            </Button>
+          </div>
+        </SectionHeader>
+        <PanelBody className="grid gap-4 xl:grid-cols-2">
+          {tools.map((tool, index) => (
+            <JavaScriptToolEditor
+              key={index}
+              tool={tool}
+              onAI={() => setDialog({ kind: "tool", index })}
+              onChange={(value) =>
+                updateDraft((next) => {
+                  const items = [...(next.javascript?.tools || [])];
+                  items[index] = value;
+                  next.javascript = { ...(next.javascript || {}), tools: items };
+                })
+              }
+              onRemove={() =>
+                updateDraft((next) => {
+                  next.javascript = { ...(next.javascript || {}), tools: (next.javascript?.tools || []).filter((_, itemIndex) => itemIndex !== index) };
+                })
+              }
+            />
+          ))}
+          {tools.length === 0 ? <EmptyState title="暂无 JavaScript 工具" description="手动添加，或描述需求让 AI 生成完整工具定义。" /> : null}
+        </PanelBody>
+      </Panel>
+
+      <Panel>
+        <SectionHeader icon={Cable} title="流程 Hooks" description="在运行、事件、工具调用和模型请求边界观察、改写、跳过或拒绝流程。">
+          <div className="flex flex-wrap gap-2">
+            <Button variant="outline" onClick={() => setDialog({ kind: "hook" })}>
+              <Sparkles className="h-4 w-4" />
+              AI 生成 Hook
+            </Button>
+            <Button onClick={addHook}>
+              <Plus className="h-4 w-4" />
+              手动添加
+            </Button>
+          </div>
+        </SectionHeader>
+        <PanelBody className="grid gap-4 xl:grid-cols-2">
+          {hooks.map((hook, index) => (
+            <JavaScriptHookEditor
+              key={index}
+              hook={hook}
+              onAI={() => setDialog({ kind: "hook", index })}
+              onChange={(value) =>
+                updateDraft((next) => {
+                  const items = [...(next.javascript?.hooks || [])];
+                  items[index] = value;
+                  next.javascript = { ...(next.javascript || {}), hooks: items };
+                })
+              }
+              onRemove={() =>
+                updateDraft((next) => {
+                  next.javascript = { ...(next.javascript || {}), hooks: (next.javascript?.hooks || []).filter((_, itemIndex) => itemIndex !== index) };
+                })
+              }
+            />
+          ))}
+          {hooks.length === 0 ? <EmptyState title="暂无 JavaScript Hook" description="添加 Hook 后可控制智能体执行流程。" /> : null}
+        </PanelBody>
+      </Panel>
+
+      {dialog ? (
+        <JavaScriptAIDialog
+          kind={dialog.kind}
+          current={current}
+          existingIDs={existingIDs}
+          onApply={applyAIDraft}
+          onClose={() => setDialog(null)}
+        />
+      ) : null}
+    </div>
+  );
+}
+
+function JavaScriptToolEditor({
+  tool,
+  onChange,
+  onRemove,
+  onAI,
+}: {
+  tool: JavaScriptToolConfig;
+  onChange: (value: JavaScriptToolConfig) => void;
+  onRemove: () => void;
+  onAI: () => void;
+}) {
+  const update = (patch: Partial<JavaScriptToolConfig>) => onChange({ ...tool, ...patch });
+  return (
+    <ConfigCard title={tool.name || tool.id || "JavaScript 工具"} aside={tool.id} onRemove={onRemove}>
+      <div className="flex justify-end">
+        <Button size="sm" variant="ghost" onClick={onAI}>
+          <Sparkles className="h-4 w-4" />
+          AI 重写
+        </Button>
+      </div>
+      <ToggleField label="启用工具" checked={Boolean(tool.enabled)} onChange={(enabled) => update({ enabled })} />
+      <div className="grid gap-3 md:grid-cols-2">
+        <TextField label="工具 ID" value={tool.id} onChange={(id) => update({ id })} placeholder="lower_snake_case" />
+        <TextField label="展示名称" value={tool.name} onChange={(name) => update({ name })} />
+      </div>
+      <TextField label="工具描述" value={tool.description} onChange={(description) => update({ description })} placeholder="说明用途、调用时机和返回内容" />
+      <div className="grid gap-3 md:grid-cols-2">
+        <NumberField label="超时（毫秒）" value={tool.timeout_ms ?? 200} min={10} onChange={(timeout_ms) => update({ timeout_ms })} />
+        <ToggleField label="只读工具" checked={tool.read_only ?? true} onChange={(read_only) => update({ read_only })} />
+      </div>
+      <JSONSchemaField value={tool.parameters} onChange={(parameters) => update({ parameters })} />
+      <Field label="工具源码（必须定义 execute(input, context)）">
+        <Textarea className="min-h-64 font-mono text-xs leading-5" value={tool.source || ""} spellCheck={false} onChange={(event) => update({ source: event.target.value })} />
+      </Field>
+    </ConfigCard>
+  );
+}
+
+function JavaScriptHookEditor({
+  hook,
+  onChange,
+  onRemove,
+  onAI,
+}: {
+  hook: JavaScriptHookConfig;
+  onChange: (value: JavaScriptHookConfig) => void;
+  onRemove: () => void;
+  onAI: () => void;
+}) {
+  const update = (patch: Partial<JavaScriptHookConfig>) => onChange({ ...hook, ...patch });
+  return (
+    <ConfigCard title={hook.name || hook.id || "JavaScript Hook"} aside={hook.id} onRemove={onRemove}>
+      <div className="flex justify-end">
+        <Button size="sm" variant="ghost" onClick={onAI}>
+          <Sparkles className="h-4 w-4" />
+          AI 重写
+        </Button>
+      </div>
+      <ToggleField label="启用 Hook" checked={Boolean(hook.enabled)} onChange={(enabled) => update({ enabled })} />
+      <div className="grid gap-3 md:grid-cols-2">
+        <TextField label="Hook ID" value={hook.id} onChange={(id) => update({ id })} placeholder="lower_snake_case" />
+        <TextField label="展示名称" value={hook.name} onChange={(name) => update({ name })} />
+      </div>
+      <HookPointField values={hook.hook_points || []} onChange={(hook_points) => update({ hook_points })} />
+      <div className="grid gap-3 md:grid-cols-3">
+        <NumberField label="超时（毫秒）" value={hook.timeout_ms ?? 200} min={10} onChange={(timeout_ms) => update({ timeout_ms })} />
+        <NumberField label="优先级" value={hook.priority ?? 100} onChange={(priority) => update({ priority })} />
+        <SelectField label="错误策略" value={hook.error_policy || "fail"} options={["fail", "warn", "ignore"]} onChange={(error_policy) => update({ error_policy: error_policy as JavaScriptHookConfig["error_policy"] })} />
+      </div>
+      <Field label="Hook 源码（必须定义 handle(hook)）">
+        <Textarea className="min-h-64 font-mono text-xs leading-5" value={hook.source || ""} spellCheck={false} onChange={(event) => update({ source: event.target.value })} />
+      </Field>
+    </ConfigCard>
+  );
+}
+
+function HookPointField({ values, onChange }: { values: string[]; onChange: (values: string[]) => void }) {
+  const selected = new Set(values);
+  return (
+    <Field label="扩展点">
+      <div className="flex flex-wrap gap-2 rounded-xl border border-border/75 bg-background/45 p-3">
+        {hookPointOptions.map((point) => (
+          <button
+            key={point}
+            type="button"
+            className={cn("rounded-lg border px-2.5 py-1.5 font-mono text-xs", selected.has(point) ? "border-primary/50 bg-primary/10 text-primary" : "border-border text-muted-foreground")}
+            onClick={() => onChange(selected.has(point) ? values.filter((item) => item !== point) : [...values, point])}
+          >
+            {point}
+          </button>
+        ))}
+      </div>
+    </Field>
+  );
+}
+
+function JSONSchemaField({ value, onChange }: { value?: Record<string, unknown>; onChange: (value: Record<string, unknown>) => void }) {
+  const serialized = JSON.stringify(value || { type: "object", properties: {} }, null, 2);
+  const [text, setText] = useState(serialized);
+  const [error, setError] = useState("");
+  const committed = useRef(serialized);
+
+  useEffect(() => {
+    if (serialized === committed.current) return;
+    committed.current = serialized;
+    setText(serialized);
+    setError("");
+  }, [serialized]);
+
+  function update(raw: string) {
+    setText(raw);
+    try {
+      const parsed = JSON.parse(raw) as Record<string, unknown>;
+      if (!parsed || Array.isArray(parsed) || parsed.type !== "object") throw new Error("根 type 必须是 object");
+      const normalized = JSON.stringify(parsed, null, 2);
+      committed.current = normalized;
+      setError("");
+      onChange(parsed);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    }
+  }
+
+  return (
+    <Field label="参数 JSON Schema">
+      <Textarea className="min-h-44 font-mono text-xs leading-5" value={text} spellCheck={false} onChange={(event) => update(event.target.value)} />
+      {error ? <div className="text-xs text-destructive">Schema 尚未生效：{error}</div> : null}
+    </Field>
+  );
+}
+
+function JavaScriptAIDialog({
+  kind,
+  current,
+  existingIDs,
+  onApply,
+  onClose,
+}: {
+  kind: "tool" | "hook";
+  current?: JavaScriptToolConfig | JavaScriptHookConfig;
+  existingIDs: string[];
+  onApply: (value: JavaScriptToolConfig | JavaScriptHookConfig) => void;
+  onClose: () => void;
+}) {
+  const [instruction, setInstruction] = useState("");
+  const [result, setResult] = useState<JavaScriptToolConfig | JavaScriptHookConfig>();
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  async function generate() {
+    if (!instruction.trim() || loading) return;
+    setLoading(true);
+    setError("");
+    try {
+      const response = await generateJavaScriptDraft({
+        kind,
+        instruction: instruction.trim(),
+        existing_ids: existingIDs,
+        current_tool: kind === "tool" ? (current as JavaScriptToolConfig | undefined) : undefined,
+        current_hook: kind === "hook" ? (current as JavaScriptHookConfig | undefined) : undefined,
+      });
+      const value = kind === "tool" ? response.tool : response.hook;
+      if (!value) throw new Error("AI 未返回有效脚本");
+      setResult(value);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/15 p-3 backdrop-blur-[1px] sm:p-6" role="dialog" aria-modal="true">
+      <div className="sketch-surface flex max-h-[calc(100dvh-1.5rem)] w-full max-w-3xl flex-col overflow-hidden rounded-2xl bg-card/95 shadow-[0_18px_48px_hsl(218_30%_20%/0.18)]">
+        <div className="flex items-start justify-between gap-3 border-b border-border/70 p-4">
+          <div>
+            <div className="flex items-center gap-2 font-semibold">
+              <Sparkles className="h-4 w-4 text-primary" />
+              AI {current ? "重写" : "生成"} JavaScript {kind === "tool" ? "工具" : "Hook"}
+            </div>
+            <div className="mt-1 text-sm leading-6 text-muted-foreground">生成结果会先经过 goja 编译校验，确认应用后仍需保存配置才会生效。</div>
+          </div>
+          <Button size="icon" variant="ghost" onClick={onClose} aria-label="关闭">
+            <X className="h-4 w-4" />
+          </Button>
+        </div>
+        <div className="chat-scroll min-h-0 flex-1 space-y-4 overflow-auto p-4">
+          <Field label="扩展需求">
+            <Textarea
+              className="min-h-28 text-sm"
+              value={instruction}
+              placeholder={kind === "tool" ? "例如：创建一个把 Markdown 表格转换为 JSON 数组的只读工具。" : "例如：调用 execute 工具前拒绝包含 sudo 的命令。"}
+              onChange={(event) => setInstruction(event.target.value)}
+            />
+          </Field>
+          {error ? <div className="rounded-lg border border-destructive/40 bg-destructive/5 px-3 py-2 text-sm text-destructive">{error}</div> : null}
+          {result ? (
+            <Field label="已通过编译校验的草稿">
+              <Textarea className="min-h-72 font-mono text-xs leading-5" value={JSON.stringify(result, null, 2)} readOnly />
+            </Field>
+          ) : null}
+        </div>
+        <div className="flex flex-col gap-2 border-t border-border/70 p-4 sm:flex-row sm:justify-end">
+          <Button variant="outline" onClick={onClose}>取消</Button>
+          <Button variant="outline" disabled={!instruction.trim() || loading} onClick={() => void generate()}>
+            <Sparkles className="h-4 w-4" />
+            {loading ? "生成中" : "生成草稿"}
+          </Button>
+          <Button disabled={!result} onClick={() => result && onApply(result)}>应用草稿</Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function uniqueJavaScriptID(values: Array<string | undefined>, base: string) {
+  const used = new Set(values.filter(Boolean));
+  if (!used.has(base)) return base;
+  let suffix = 2;
+  while (used.has(`${base}_${suffix}`)) suffix += 1;
+  return `${base}_${suffix}`;
+}
+
 function OtherTab({ draft, toolsCount }: { draft: AppConfig; toolsCount: number }) {
   const unknownKeys = Object.keys(draft).filter((key) => !knownTopLevelConfigKeys.has(key));
   return (
@@ -1589,7 +1992,7 @@ interface ToolSelectOption {
   label: string;
   description?: string;
   category?: string;
-  source: "builtin" | "mcp";
+  source: "builtin" | "mcp" | "custom";
   readOnly?: boolean;
   destructive?: boolean;
   enabled?: boolean;
@@ -1660,6 +2063,7 @@ function ToolSelectField({
                   <Wrench className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
                   <span className="truncate">{option?.label || tool}</span>
                   {option?.source === "mcp" ? <Badge>MCP</Badge> : null}
+                  {option?.source === "custom" ? <Badge>JS</Badge> : null}
                   {!option ? <Badge>手动</Badge> : null}
                   {disabled ? null : (
                     <button
@@ -1757,7 +2161,7 @@ function buildToolOptions(tools: ToolInfo[], mcpServers: MCPServerConfig[]): Too
       label: tool.display_name || name,
       description: tool.description || tool.included_tools?.join(", "),
       category: tool.category,
-      source: tool.builtin === false ? "mcp" : "builtin",
+      source: tool.name === "javascript" ? "custom" : tool.builtin === false ? "mcp" : "builtin",
       readOnly: tool.read_only,
       destructive: tool.destructive,
       enabled: true,
@@ -2391,6 +2795,9 @@ function normalizeConfig(config: AppConfig): AppConfig {
   next.tools.approval = next.tools.approval || {};
   next.tools.approval.auto_approve = normalizeApprovalStores(next.tools.approval.auto_approve || []);
   next.tools.mcp_servers = next.tools.mcp_servers || [];
+  next.javascript = next.javascript || {};
+  next.javascript.tools = next.javascript.tools || [];
+  next.javascript.hooks = next.javascript.hooks || [];
   return next;
 }
 

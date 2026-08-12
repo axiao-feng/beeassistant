@@ -122,7 +122,9 @@ SSH 上传和下载的本地路径仅限当前工作区，单文件上限为 1 G
 | `description` | 能力描述 |
 | `prompt` | 系统提示词 |
 | `model_id` | 引用 `[[models]].id` |
-| `tools` | 可用工具列表，可包含内置工具和 `mcp-<server_id>` |
+| `tools` | 可用工具列表，可包含内置工具、`javascript` 和 `mcp-<server_id>` |
+
+JavaScript 工具与流程 Hook 建议通过 Web 配置页的“脚本”页签管理；配置结构、脚本入口和执行边界见 [JavaScript 扩展](./javascript.md)。
 
 ## 圆桌讨论
 

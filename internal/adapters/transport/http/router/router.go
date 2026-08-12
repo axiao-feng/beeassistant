@@ -84,6 +84,7 @@ func registerAPIRoutesWithRuntime(r *gin.Engine, _ bool, state *appstate.State, 
 		{
 			ai.POST("/agents/draft", standardJSONBody, runtime.GenerateAgentDraftsHandler())
 			ai.POST("/skills/draft", standardJSONBody, runtime.GenerateSkillDraftHandler())
+			ai.POST("/javascript/draft", standardJSONBody, runtime.GenerateJavaScriptDraftHandler())
 			ai.POST("/text/rewrite", standardJSONBody, runtime.RewriteTextHandler())
 		}
 

@@ -149,6 +149,24 @@
 
 ---
 
+## POST /api/fkteams/ai/javascript/draft
+
+根据自然语言生成 JavaScript 工具或流程 Hook 草稿。接口使用默认对话模型，返回前会校验结构、goja 语法和入口函数。
+
+生成工具：
+
+```json
+{
+  "kind": "tool",
+  "instruction": "创建一个统计文本字符数的只读工具",
+  "existing_ids": ["other_tool"]
+}
+```
+
+生成 Hook 时将 `kind` 改为 `hook`。重写现有草稿可额外传入 `current_tool` 或 `current_hook`。返回的扩展默认不启用，客户端应让用户审查后再写入配置。
+
+---
+
 ## POST /api/fkteams/shutdown
 
 请求服务优雅关闭。仅当生命周期管理器可用时成功。

@@ -166,6 +166,33 @@ export interface OpenAIAPIConfig {
   api_keys?: string[];
 }
 
+export interface JavaScriptToolConfig {
+  id?: string;
+  name?: string;
+  description?: string;
+  enabled?: boolean;
+  timeout_ms?: number;
+  read_only?: boolean;
+  parameters?: Record<string, unknown>;
+  source?: string;
+}
+
+export interface JavaScriptHookConfig {
+  id?: string;
+  name?: string;
+  enabled?: boolean;
+  hook_points?: string[];
+  timeout_ms?: number;
+  error_policy?: "ignore" | "warn" | "fail";
+  priority?: number;
+  source?: string;
+}
+
+export interface JavaScriptSettingsConfig {
+  tools?: JavaScriptToolConfig[];
+  hooks?: JavaScriptHookConfig[];
+}
+
 export interface ToolInfo {
   name: string;
   display_name?: string;
@@ -187,5 +214,6 @@ export interface AppConfig {
   roundtable?: RoundtableConfig;
   deep?: DeepConfig;
   tools?: ToolSettingsConfig;
+  javascript?: JavaScriptSettingsConfig;
   [key: string]: unknown;
 }

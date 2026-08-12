@@ -277,7 +277,7 @@ func RegisterDefaults(mcpProvider toolport.MCPProvider) (*apptools.ToolGroupRegi
 			Info: apptools.ToolGroupInfo{
 				Name:        "javascript",
 				DisplayName: "自定义工具",
-				Description: "运行用户创建的工具，可按权限组合现有能力、保存状态并发送任务通知。",
+				Description: "运行用户创建的工具，可通过宿主函数组合现有能力、保存状态并发送任务通知。",
 				Category:    "扩展",
 				Builtin:     false,
 			},

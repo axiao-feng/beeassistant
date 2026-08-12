@@ -91,11 +91,8 @@ func (t *Tool) Invoke(ctx context.Context, invocation runtimeport.ToolInvocation
 	runCtx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 	capabilities := &capabilityContext{
-		ctx: runCtx,
-		definition: configView{
-			id:          t.definition.ID,
-			permissions: t.definition.Permissions,
-		},
+		ctx:        runCtx,
+		definition: configView{id: t.definition.ID},
 		invocation: invocationView{
 			name:   invocation.Name,
 			callID: invocation.CallID,

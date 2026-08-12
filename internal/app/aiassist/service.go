@@ -308,7 +308,6 @@ func javaScriptDraftSystemPrompt() string {
     "enabled": false,
     "timeout_ms": 200,
     "read_only": true,
-    "permissions": [],
     "parameters": {"type":"object","properties":{},"required":[]},
     "source": "function execute(input, context) { return ...; }"
   }
@@ -332,12 +331,17 @@ Hook 格式：
 执行环境约束：
 - 只支持同步 JavaScript，不要使用 async、Promise、setTimeout、fetch、require、process、文件系统或 Node.js API。
 - 每次调用使用独立 Runtime，不要依赖全局状态跨调用保存。
-- 工具 execute 的 input 是 parameters 描述的 JSON 对象；context 顶层包含 tool_name、call_id、session_id、permissions。返回字符串、数字、布尔值、数组或对象。
-- context.tools.call(group, tool, args) 可同步调用 available_tool_groups 中的工具。必须声明 tools:<group> 或最小化的 tools:<group>/<tool> 权限；禁止调用 javascript 工具组。
-- context.storage 提供 get(key)、set(key,value)、delete(key)、keys()，使用时必须声明 storage 权限。
-- context.events.notice(message, level) 可发送 info、warn、error 通知，使用时必须声明 events:notice 权限。
-- context.log.debug/info/warn/error(value) 始终可用，不需要权限。
-- permissions 只使用 storage、events:notice 或 available_tool_groups 能证明存在的 tools 权限。按最小权限原则生成，不要申请源码未使用的能力。
+- 工具 execute 的 input 是 parameters 描述的 JSON 对象；context 顶层包含 tool_name、call_id、session_id。返回字符串、数字、布尔值、数组或对象。
+- 优先使用简洁的宿主函数：context.workspace.read(path, options?)、write(path, content)、append(path, content)、replace(path, oldText, newText)、patch(diff)、list(path)、glob(pattern, options?)、grep(pattern, options?)。
+- context.workspace.read 可选 start_line、end_line；glob 可选 path；grep 可选 path、include、use_regex、context、max_count。
+- context.shell.run(command, options?) 执行命令，可选 timeout、reason、background、task_id、task_action。
+- context.web.search(query, options?) 返回搜索结果数组，可选 time_range；context.web.fetch(url, options?) 返回网页正文，可选 format、timeout。
+- context.state 提供 get(key)、set(key,value)、delete(key)、keys()；context.notify(message, level?) 发送通知，level 可为 info、warn、error。
+- context.log.debug/info/warn/error(value) 写入服务日志。
+- 源码较长时可在 execute 参数中解构需要的能力，例如 function execute(input, { workspace, state })，后续直接调用 workspace.read(...) 和 state.get(...)。
+- 只有宿主函数无法覆盖需求时，才使用 context.tools.call(group, tool, args) 调用 available_tool_groups 中的工具；禁止调用 javascript 工具组，也不要猜测不存在的组或工具名。
+- workspace、shell、web 便捷函数会在底层工具返回 error_message 时直接抛出异常。需要降级处理时使用 try/catch。
+- 宿主函数已经自动接入，不要生成权限字段或权限检查代码。
 - handle 返回 {action, message, payload}；action 只能是 continue、skip、reject。需要改写时，修改 hook.payload 后把它作为 payload 返回。
 - hook.point 可选值：before_run、after_run、on_event、before_tool_call、after_tool_call、before_model_request、after_model_response。
 - before_run payload 为 {input:{context,message}}；on_event 为 {event}；before_tool_call 为 {tool_name,args,meta}；before_model_request 为 {messages,meta}。
@@ -488,7 +492,6 @@ func normalizeJavaScriptDraft(parsed JavaScriptDraftResponse, req JavaScriptDraf
 		item.Source = cleanJavaScriptSource(item.Source)
 		item.Enabled = false
 		item.TimeoutMS = normalizeJavaScriptTimeout(item.TimeoutMS, 120_000)
-		item.Permissions = validGeneratedPermissions(item.Permissions, req.AvailableToolGroups)
 		if schemaType, _ := item.Parameters["type"].(string); schemaType != "object" {
 			item.Parameters = map[string]any{
 				"type":       "object",
@@ -539,36 +542,6 @@ func normalizeJavaScriptTimeout(timeoutMS, maximum int) int {
 		return maximum
 	}
 	return timeoutMS
-}
-
-func validGeneratedPermissions(permissions []string, groups []apptools.ToolGroupInfo) []string {
-	available := make(map[string]map[string]bool, len(groups))
-	for _, group := range groups {
-		if group.Name == "" || group.Name == "javascript" {
-			continue
-		}
-		tools := make(map[string]bool, len(group.IncludedTools))
-		for _, name := range group.IncludedTools {
-			tools[name] = true
-		}
-		available[group.Name] = tools
-	}
-	seen := make(map[string]bool, len(permissions))
-	result := make([]string, 0, len(permissions))
-	for _, permission := range permissions {
-		permission = strings.TrimSpace(permission)
-		valid := permission == config.JavaScriptPermissionStorage || permission == config.JavaScriptPermissionEventNotice
-		if target, ok := strings.CutPrefix(permission, "tools:"); ok {
-			group, tool, exact := strings.Cut(target, "/")
-			included, exists := available[group]
-			valid = exists && (!exact || tool != "" && included[tool])
-		}
-		if valid && !seen[permission] {
-			seen[permission] = true
-			result = append(result, permission)
-		}
-	}
-	return result
 }
 
 func validGeneratedHookPoints(points []string) []string {

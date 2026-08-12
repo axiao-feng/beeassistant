@@ -13,11 +13,15 @@ import (
 
 type fakeToolCaller struct {
 	request ToolCallRequest
+	content string
 }
 
 func (f *fakeToolCaller) Call(_ context.Context, request ToolCallRequest) (string, error) {
 	f.request = request
-	return `{"value":42}`, nil
+	if f.content != "" {
+		return f.content, nil
+	}
+	return `{"content":"hello","value":42}`, nil
 }
 
 type memoryStateStore struct {
@@ -93,13 +97,12 @@ func TestToolCapabilitiesComposeToolsAndPersistState(t *testing.T) {
 		ID:          "workflow",
 		Name:        "工作流",
 		Description: "组合已有能力",
-		Permissions: []string{"tools:file/file_read", PermissionStorage, PermissionEventNotice},
 		Source: `function execute(input, context) {
-  const previous = context.storage.get("counter") || 0;
-  context.storage.set("counter", previous + 1);
-  const nested = context.tools.call("file", "file_read", {path: input.path});
-  context.events.notice("finished", "warn");
-  return {counter: context.storage.get("counter"), nested, keys: context.storage.keys()};
+  const previous = context.state.get("counter") || 0;
+  context.state.set("counter", previous + 1);
+  const content = context.workspace.read(input.path, {start_line: 2});
+  context.notify("finished", "warn");
+  return {counter: context.state.get("counter"), content, keys: context.state.keys()};
 }`,
 	}, Options{ToolCaller: caller, StateStore: state, NoticeEmitter: notices})
 	if err != nil {
@@ -113,13 +116,13 @@ func TestToolCapabilitiesComposeToolsAndPersistState(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Invoke() error = %v", err)
 	}
-	if result.Content != `{"counter":1,"keys":["counter"],"nested":{"value":42}}` {
+	if result.Content != `{"content":"hello","counter":1,"keys":["counter"]}` {
 		t.Fatalf("Invoke() content = %s", result.Content)
 	}
 	if caller.request.Group != "file" || caller.request.Tool != "file_read" || caller.request.CallID != "call-1:js:1" {
 		t.Fatalf("Call() request = %#v", caller.request)
 	}
-	if !reflect.DeepEqual(caller.request.Args, map[string]any{"path": "README.md"}) {
+	if !reflect.DeepEqual(caller.request.Args, map[string]any{"filepath": "README.md", "start_line": int64(2)}) {
 		t.Fatalf("Call() args = %#v", caller.request.Args)
 	}
 	if notices.level != "warn" || notices.message != "finished" {
@@ -127,19 +130,38 @@ func TestToolCapabilitiesComposeToolsAndPersistState(t *testing.T) {
 	}
 }
 
-func TestToolCapabilityRejectsMissingPermission(t *testing.T) {
+func TestToolCapabilityRejectsRecursiveToolGroup(t *testing.T) {
 	tool, err := NewToolWithOptions(config.JavaScriptTool{
-		ID:          "denied",
-		Name:        "未授权工具",
-		Description: "验证权限隔离",
-		Source:      `function execute(input, context) { return context.tools.call("file", "file_read", {}); }`,
+		ID:          "recursive",
+		Name:        "递归工具",
+		Description: "验证递归保护",
+		Source:      `function execute(input, context) { return context.tools.call("javascript", "recursive", {}); }`,
 	}, Options{ToolCaller: &fakeToolCaller{}})
 	if err != nil {
 		t.Fatalf("NewTool() error = %v", err)
 	}
-	_, err = tool.Invoke(context.Background(), runtimeport.ToolInvocation{Name: "denied"})
-	if err == nil || !strings.Contains(err.Error(), "permission denied: tools:file/file_read") {
-		t.Fatalf("Invoke() error = %v, want permission denied", err)
+	_, err = tool.Invoke(context.Background(), runtimeport.ToolInvocation{Name: "recursive"})
+	if err == nil {
+		t.Fatal("Invoke() error = nil, want recursive group error")
+	}
+}
+
+func TestToolConvenienceFunctionPromotesToolError(t *testing.T) {
+	tool, err := NewToolWithOptions(config.JavaScriptTool{
+		ID:          "read_missing",
+		Name:        "读取文件",
+		Description: "验证宿主错误",
+		Source:      `function execute(input, {workspace}) { return workspace.read(input.path); }`,
+	}, Options{ToolCaller: &fakeToolCaller{content: `{"error_message":"file not found"}`}})
+	if err != nil {
+		t.Fatalf("NewTool() error = %v", err)
+	}
+	_, err = tool.Invoke(context.Background(), runtimeport.ToolInvocation{
+		Name:      "read_missing",
+		Arguments: `{"path":"missing.txt"}`,
+	})
+	if err == nil || !strings.Contains(err.Error(), "file not found") {
+		t.Fatalf("Invoke() error = %v, want host tool error", err)
 	}
 }
 
@@ -152,11 +174,10 @@ func TestToolStoragePersistsAcrossIndependentRuntimes(t *testing.T) {
 		ID:          "persistent",
 		Name:        "持久化工具",
 		Description: "验证跨 Runtime 状态",
-		Permissions: []string{PermissionStorage},
 		Source: `function execute(input, context) {
-  const state = context.storage.get("state") || {count: 0};
+  const state = context.state.get("state") || {count: 0};
   state.count += 1;
-  context.storage.set("state", state);
+  context.state.set("state", state);
   return state;
 }`,
 	}, Options{StateStore: store})

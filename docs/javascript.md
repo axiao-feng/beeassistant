@@ -1,8 +1,8 @@
 # JavaScript 扩展
 
-fkteams 使用 [dop251/goja](https://github.com/dop251/goja) 执行用户脚本。打开 Web 配置页的“脚本”页签，可以手写或通过 AI 生成两类扩展：
+fkteams 内置了隔离的同步脚本运行时。打开 Web 配置页的“脚本”页签，可以手写或通过 AI 生成两类扩展：
 
-- JavaScript 工具：注册为模型可发现、可调用的新工具。
+- 自定义工具：注册为模型可发现、可调用的新工具。
 - 流程 Hook：在运行、事件、工具调用和模型请求边界观察或控制流程。
 
 AI 生成的草稿会先在服务端完成语法和入口函数校验，应用后仍需检查内容、启用扩展并保存配置。配置保存后会清理智能体运行缓存，新的工具和 Hook 无需重启服务即可生效。
@@ -37,34 +37,43 @@ function execute(input, context) {
 }
 ```
 
-`input` 是模型生成的参数对象。`context` 包含调用元数据和按权限开放的宿主能力：
+`input` 是模型生成的参数对象。`context` 包含调用元数据和自动接入的宿主函数：
 
-| API | 权限 | 说明 |
+| API | 返回值 | 说明 |
 | --- | --- | --- |
-| `context.tools.call(group, tool, args)` | `tools:<group>` 或 `tools:<group>/<tool>` | 同步调用现有内置、MCP 或其他工具组中的工具 |
-| `context.storage.get(key)` | `storage` | 读取当前脚本命名空间中的 JSON 值，不存在时返回 `null` |
-| `context.storage.set(key, value)` | `storage` | 原子持久化 JSON 值 |
-| `context.storage.delete(key)` | `storage` | 删除值并返回是否存在 |
-| `context.storage.keys()` | `storage` | 返回当前脚本的有序键列表 |
-| `context.events.notice(message, level)` | `events:notice` | 向当前任务发送 `info`、`warn` 或 `error` 通知 |
-| `context.log.debug/info/warn/error(value)` | 无需额外权限 | 写入带脚本 ID 的服务日志 |
+| `context.workspace.read(path, options?)` | 文件文本 | 读取工作区文件；可传 `start_line`、`end_line` |
+| `context.workspace.write(path, content)` | 写入结果 | 覆盖写入工作区文件 |
+| `context.workspace.append(path, content)` | 写入结果 | 追加内容，文件不存在时自动创建 |
+| `context.workspace.replace(path, oldText, newText)` | 编辑结果 | 精确替换唯一匹配的文本 |
+| `context.workspace.patch(diff)` | 补丁结果 | 应用 unified diff，可同时修改多个文件 |
+| `context.workspace.list(path)` | 目录文本 | 列出工作区目录 |
+| `context.workspace.glob(pattern, options?)` | 路径数组 | 按文件名匹配；可传 `path` |
+| `context.workspace.grep(pattern, options?)` | 匹配数组 | 搜索内容；可传 `path`、`include`、`use_regex`、`context`、`max_count` |
+| `context.shell.run(command, options?)` | 命令结果 | 在工作区执行命令；可传 `timeout`、`reason`、`background` 等参数 |
+| `context.web.search(query, options?)` | 搜索结果数组 | 搜索网络；可传 `time_range` |
+| `context.web.fetch(url, options?)` | 网页正文 | 获取网页；可传 `format`、`timeout` |
+| `context.state.get/set/delete/keys` | JSON 值 | 使用按工具 ID 隔离的持久化状态 |
+| `context.notify(message, level?)` | 无 | 向当前任务发送 `info`、`warn` 或 `error` 通知，默认 `info` |
+| `context.log.debug/info/warn/error(value)` | 无 | 写入带工具 ID 的服务日志 |
 
-顶层元数据包括 `tool_name`、`call_id`、`session_id` 和 `permissions`。返回值可以是字符串、数字、布尔值、数组或对象；非字符串值会序列化为 JSON 后返回给模型。
+顶层元数据包括 `tool_name`、`call_id` 和 `session_id`。返回值可以是字符串、数字、布尔值、数组或对象；非字符串值会序列化为 JSON 后返回给模型。
 
-下面的工具读取工作区文件并保存调用次数，需要授予 `tools:file/file_read` 和 `storage`：
+下面的工具读取工作区文件并保存调用次数，不需要额外配置宿主能力：
 
 ```javascript
-function execute(input, context) {
-  const count = (context.storage.get("count") || 0) + 1;
-  context.storage.set("count", count);
-  const file = context.tools.call("file", "file_read", { path: input.path });
-  return { count, file };
+function execute(input, { workspace, state }) {
+  const count = (state.get("count") || 0) + 1;
+  state.set("count", count);
+  const content = workspace.read(input.path);
+  return { count, content };
 }
 ```
 
-工具组权限适合需要组合一组能力的脚本，例如 `tools:file`；精确工具权限适合最小授权，例如 `tools:file/file_read`。不允许调用 `javascript` 工具组，避免脚本递归创建失控的调用链。脚本调用现有工具时仍会经过工具 Hook、安全策略、审批和工作区路径限制。
+这些函数由 Go 注入脚本运行时，内部复用现有工具，因此仍会经过工具 Hook、安全策略、审批、串行化和工作区路径限制。便捷函数发现底层工具返回 `error_message` 时会直接抛出异常，可用 `try/catch` 做降级处理。
 
-Web 编辑器支持为当前未保存的工具填写 JSON 输入并试运行。试运行使用与正式调用相同的 goja Runtime、权限、工具注册表和 HookBus，并展示原始返回值与脚本通知。它会真实调用已授权工具、写入脚本状态并可能产生副作用；破坏性能力仍需通过既有审批。
+少数便捷函数无法覆盖的高级场景，可以使用 `context.tools.call(group, tool, args)` 调用已注册的内置或 MCP 工具。它属于底层兼容接口，需要知道准确的工具组、工具名和参数契约；不允许调用 `javascript` 工具组，以避免失控的递归调用。普通脚本和 AI 生成脚本应优先使用上表中的宿主函数。
+
+Web 编辑器支持为当前未保存的工具填写 JSON 输入并试运行。试运行使用与正式调用相同的脚本运行时、宿主函数、工具注册表和 HookBus，并展示原始返回值与脚本通知。它会真实调用工具、写入脚本状态并可能产生副作用；破坏性能力仍需通过既有审批。
 
 启用工具并保存后，内置协调者会自动加载 `javascript` 工具组。自定义智能体可以在“智能体”页签中显式添加“JavaScript 扩展”工具组。
 
@@ -111,10 +120,10 @@ function handle(hook) {
 
 ## 执行边界
 
-- 每次调用都使用独立 goja Runtime，不共享脚本全局状态。
+- 每次调用都使用独立 Runtime，不共享脚本全局状态。
 - 脚本最大 64 KiB，单次默认超时 200 毫秒。工具脚本可配置 10–120000 毫秒，便于等待网络或命令工具；流程 Hook 最多 5000 毫秒，避免长时间阻塞关键边界。
-- 超时或上下文取消会通过 goja Interrupt 中断脚本。
-- 不直接提供 `fetch`、`require`、`process`、文件系统、网络、定时器或其他 Node.js/宿主 API；需要这些能力时应显式授权并组合现有 `fetch`、`file`、`command`、MCP 等工具组。
+- 超时或上下文取消会中断脚本。
+- 不提供 `require`、`process`、定时器或其他 Node.js API；文件、命令和网络访问使用 `context` 中的同步宿主函数。
 - 持久化状态按脚本 ID 隔离，单个脚本最多 256 个键、1 MiB 数据，删除脚本不会自动删除其状态文件。
 - 当前只支持同步脚本，不要使用 `async`、Promise 或异步回调。
 - JavaScript 配置属于管理能力。对外开放 Web 服务时应启用认证，并只允许可信管理员编辑或启用脚本。

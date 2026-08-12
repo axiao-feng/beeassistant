@@ -7,25 +7,11 @@ func TestValidateJavaScriptAcceptsTool(t *testing.T) {
 		ID:          "text_stats",
 		Name:        "文本统计",
 		Description: "统计文本",
-		Permissions: []string{"storage", "events:notice", "tools:file/file_read", "tools:mcp-demo"},
 		Parameters:  map[string]any{"type": "object"},
 		Source:      `function execute(input) { return input; }`,
 	}}}}
 	if err := cfg.ValidateJavaScript(); err != nil {
 		t.Fatalf("ValidateJavaScript() error = %v", err)
-	}
-}
-
-func TestValidateJavaScriptRejectsInvalidPermission(t *testing.T) {
-	cfg := &Config{JavaScript: JavaScriptSettings{Tools: []JavaScriptTool{{
-		ID:          "recursive",
-		Name:        "递归工具",
-		Description: "无效权限",
-		Permissions: []string{"tools:javascript"},
-		Source:      `function execute() {}`,
-	}}}}
-	if err := cfg.ValidateJavaScript(); err == nil {
-		t.Fatal("ValidateJavaScript() error = nil, want invalid permission error")
 	}
 }
 

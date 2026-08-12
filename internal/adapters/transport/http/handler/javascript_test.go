@@ -19,9 +19,8 @@ func TestJavaScriptToolTestRunsDraftAndCollectsNotices(t *testing.T) {
 			ID:          "preview",
 			Name:        "预览",
 			Description: "试运行测试",
-			Permissions: []string{config.JavaScriptPermissionEventNotice},
 			Source: `function execute(input, context) {
-  context.events.notice("preview completed", "info");
+	context.notify("preview completed");
   return {value: input.value + 1};
 }`,
 		},

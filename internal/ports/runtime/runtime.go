@@ -54,6 +54,7 @@ type DeepPlanningConfig struct {
 
 // DeepWorkspaceConfig 描述深度智能体的工作区文件能力。
 type DeepWorkspaceConfig struct {
+	Dir     string
 	Enabled bool
 }
 
@@ -68,12 +69,6 @@ type DeepShellConfig struct {
 type DeepDelegationConfig struct {
 	GeneralAgent        bool
 	TaskToolDescription string
-}
-
-// DeepContextConfig 描述深度智能体的项目上下文能力。
-type DeepContextConfig struct {
-	Summary  bool
-	AgentsMD bool
 }
 
 // DeepOutputConfig 描述深度智能体的输出写入能力。
@@ -93,7 +88,6 @@ type ChatAgentConfig struct {
 	Middlewares        []AgentMiddleware
 	ModelRetryConfig   *ModelRetryConfig
 	MaxIterations      int
-	EmitInternalEvents bool
 }
 
 // Validate 校验 ChatAgentConfig 的最低契约。
@@ -134,22 +128,21 @@ func (cfg *LoopAgentConfig) Validate() error {
 
 // DeepAgentConfig 是创建深度协作智能体的 runtime 无关配置。
 type DeepAgentConfig struct {
-	Name               string
-	Description        string
-	Instruction        string
-	Model              ChatModel
-	Tools              []Tool
-	SubAgents          []Agent
-	Middlewares        []AgentMiddleware
-	ModelRetryConfig   *ModelRetryConfig
-	MaxIterations      int
-	Planning           DeepPlanningConfig
-	Workspace          DeepWorkspaceConfig
-	Shell              DeepShellConfig
-	Delegation         DeepDelegationConfig
-	Context            DeepContextConfig
-	Output             DeepOutputConfig
-	EmitInternalEvents bool
+	Name             string
+	Description      string
+	Instruction      string
+	Model            ChatModel
+	Tools            []Tool
+	ToolMiddlewares  []ToolMiddleware
+	SubAgents        []Agent
+	Middlewares      []AgentMiddleware
+	ModelRetryConfig *ModelRetryConfig
+	MaxIterations    int
+	Planning         DeepPlanningConfig
+	Workspace        DeepWorkspaceConfig
+	Shell            DeepShellConfig
+	Delegation       DeepDelegationConfig
+	Output           DeepOutputConfig
 }
 
 // Validate 校验 DeepAgentConfig 的最低契约。
@@ -212,7 +205,7 @@ type DispatchConfig struct {
 	TaskTimeout    time.Duration
 }
 
-// ChatAgentFactory 创建单模型工具智能体。
+// AgentRuntime 创建普通、循环和深度智能体。
 type AgentRuntime interface {
 	NewChatModelAgent(ctx context.Context, cfg *ChatAgentConfig) (Agent, error)
 	NewLoopAgent(ctx context.Context, cfg *LoopAgentConfig) (Agent, error)
@@ -229,19 +222,12 @@ type AgentToolRuntime interface {
 	NewAgentTools(ctx context.Context, subAgents []Agent, cfg AgentToolConfig) ([]Tool, error)
 }
 
-// Runtime 是 runtime registry 保存的最小可执行 adapter 能力集合。
+// Runtime 是组合根注入的最小可执行 adapter 能力集合。
 // 消费方应优先依赖 AgentRuntime、RunnerRuntime、AgentToolRuntime 等小接口。
 type Runtime interface {
 	AgentRuntime
 	RunnerRuntime
 	AgentToolRuntime
-}
-
-// RuntimeInfo 描述 runtime adapter 的静态能力。
-type RuntimeInfo struct {
-	Name         string
-	Description  string
-	Capabilities []string
 }
 
 // RuntimeHealth 描述 runtime adapter 的运行可用性。
@@ -251,9 +237,8 @@ type RuntimeHealth struct {
 	Message string
 }
 
-// RuntimeInspector 暴露 runtime adapter 的元信息和健康检查。
+// RuntimeInspector 暴露 runtime adapter 的健康检查。
 type RuntimeInspector interface {
-	RuntimeInfo() RuntimeInfo
 	CheckHealth(ctx context.Context) RuntimeHealth
 }
 
@@ -296,16 +281,12 @@ type EventSink func(event.Event) error
 // RunOptions 描述一次 Runner 执行的可选能力。
 type RunOptions struct {
 	RunID            string
-	CheckpointID     string
 	Sink             EventSink
 	InterruptHandler InterruptHandler
 }
 
 // WithDefaults 填充 RunOptions 的安全默认值。
 func (opts RunOptions) WithDefaults(defaultRunID string) RunOptions {
-	if opts.RunID == "" {
-		opts.RunID = opts.CheckpointID
-	}
 	if opts.RunID == "" {
 		opts.RunID = defaultRunID
 	}

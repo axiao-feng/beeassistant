@@ -383,31 +383,6 @@ func ConfigItems(cfg *config.Config) []config.AgentConfig {
 	return result
 }
 
-func mergeAgentConfig(base, override config.AgentConfig) config.AgentConfig {
-	base.ID = override.ID
-	base.Enabled = override.Enabled
-	if override.Name != "" {
-		base.Name = override.Name
-	}
-	if override.Description != "" {
-		base.Description = override.Description
-	}
-	if override.Prompt != "" {
-		base.Prompt = override.Prompt
-	}
-	if override.ModelID != "" {
-		base.ModelID = override.ModelID
-	}
-	if override.Tools != nil {
-		base.Tools = append([]string(nil), override.Tools...)
-	}
-	if override.SSH != nil {
-		ssh := *override.SSH
-		base.SSH = &ssh
-	}
-	return base
-}
-
 func agentInfoFromConfig(cfg *config.Config, agentCfg config.AgentConfig) AgentInfo {
 	for _, spec := range builtinAgentSpecs() {
 		if spec.id != agentCfg.ID {

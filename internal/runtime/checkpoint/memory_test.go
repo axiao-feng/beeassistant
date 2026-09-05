@@ -61,3 +61,17 @@ func TestMemoryStoreConcurrentAccess(t *testing.T) {
 	}
 	wg.Wait()
 }
+
+func TestMemoryStoreDeleteDropsState(t *testing.T) {
+	store := NewMemoryStore().(*MemoryStore)
+	ctx := context.Background()
+	if err := store.Set(ctx, "run", []byte("state")); err != nil {
+		t.Fatal(err)
+	}
+	if err := store.Delete(ctx, "run"); err != nil {
+		t.Fatal(err)
+	}
+	if _, ok, err := store.Get(ctx, "run"); err != nil || ok {
+		t.Fatalf("deleted checkpoint = %v, %v", ok, err)
+	}
+}

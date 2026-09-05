@@ -38,7 +38,7 @@ func TestRunTurnDelegatesToRunnerAndPublishesEvents(t *testing.T) {
 	if runner.input.Message.Content != "ping" {
 		t.Fatalf("runner input = %#v", runner.input)
 	}
-	if runner.opts.RunID != "run-1" || runner.opts.CheckpointID != "session-1" {
+	if runner.opts.RunID != "run-1" {
 		t.Fatalf("run options = %#v", runner.opts)
 	}
 	if len(gotEvents) != 1 || gotEvents[0].Type != event.TypeAssistantCompleted {
@@ -140,7 +140,7 @@ type fakeRunner struct {
 func (r *fakeRunner) Run(ctx context.Context, input message.TurnInput, opts runtimeport.RunOptions) (*runtimeport.RunResult, error) {
 	r.input = input
 	r.opts = opts
-	opts = opts.WithDefaults(opts.CheckpointID)
+	opts = opts.WithDefaults("fake-run")
 	if opts.Sink != nil {
 		if err := opts.Sink(event.Event{
 			Type:    event.TypeAssistantCompleted,

@@ -23,13 +23,13 @@ type Request struct {
 	// Runner 执行当前 turn 的 runtime runner。
 	Runner runtimeport.Runner
 
-	// SessionID 会话 ID，同时作为 checkpoint ID。
+	// SessionID 会话 ID，用于上下文和持久化归属。
 	SessionID string
 
 	// Input 本轮运行输入
 	Input message.TurnInput
 
-	// RunID 本轮运行 ID；为空时使用 checkpointID
+	// RunID 本轮运行 ID；为空时使用 SessionID
 	RunID string
 
 	// EventCallback 接收智能体执行期间的事件

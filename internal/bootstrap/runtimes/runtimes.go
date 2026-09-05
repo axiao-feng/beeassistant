@@ -2,18 +2,16 @@ package runtimes
 
 import (
 	modelproviders "fkteams/internal/adapters/model/providers"
-	einoruntime "fkteams/internal/adapters/runtime/eino"
-	einoengine "fkteams/internal/adapters/runtime/eino/engine"
-	einoproviders "fkteams/internal/adapters/runtime/eino/providers/register"
+	kitruntime "fkteams/internal/adapters/runtime/agentkit"
+	kitengine "fkteams/internal/adapters/runtime/agentkit/engine"
+	kitproviders "fkteams/internal/adapters/runtime/agentkit/providers/register"
 	toolmcp "fkteams/internal/adapters/tools/mcp"
 	runtimeport "fkteams/internal/ports/runtime"
 	modelregistry "fkteams/internal/runtime/model"
-	runtimeregistry "fkteams/internal/runtime/registry"
 )
 
 // Defaults 保存组合根创建的默认 runtime 依赖。
 type Defaults struct {
-	RuntimeRegistry       *runtimeregistry.Registry
 	Runtime               runtimeport.Runtime
 	Interrupt             runtimeport.InterruptRuntime
 	ModelRegistry         *modelregistry.Registry
@@ -34,25 +32,17 @@ func NewDefaults(options ...Options) (*Defaults, error) {
 
 	providerRegistry := modelproviders.NewRegistry()
 	modelRegistry := modelregistry.NewRegistry()
-	einoproviders.RegisterDefaults(providerRegistry, modelRegistry)
+	kitproviders.RegisterDefaults(providerRegistry, modelRegistry)
 
-	engine := einoengine.NewEngine()
-	runtimeRegistry := runtimeregistry.NewRegistry(runtimeregistry.DefaultRuntimeName)
-	if err := runtimeRegistry.Register(runtimeregistry.DefaultRuntimeName, engine); err != nil {
-		return nil, err
-	}
-	if err := runtimeRegistry.Use(runtimeregistry.DefaultRuntimeName); err != nil {
-		return nil, err
-	}
+	engine := kitengine.NewEngine()
 
 	if opt.MCPProvider != nil {
 		opt.MCPProvider.RegisterToolProvider(engine.MCPTools)
 	}
 
 	return &Defaults{
-		RuntimeRegistry:       runtimeRegistry,
 		Runtime:               engine,
-		Interrupt:             einoruntime.NewInterruptRuntime(),
+		Interrupt:             kitruntime.NewInterruptRuntime(),
 		ModelRegistry:         modelRegistry,
 		ModelProviderRegistry: providerRegistry,
 	}, nil

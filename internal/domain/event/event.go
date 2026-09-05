@@ -127,6 +127,9 @@ type UsagePayload struct {
 	TotalTokens      int `json:"total_tokens,omitempty"`
 }
 
+// NoticeTransfer 标识智能体转交通知。
+const NoticeTransfer = "transfer"
+
 type NoticePayload struct {
 	Level   string `json:"level,omitempty"`
 	Message string `json:"message,omitempty"`

@@ -3,7 +3,6 @@ package common
 import (
 	"context"
 	"fmt"
-	"runtime"
 	"strconv"
 	"strings"
 
@@ -42,40 +41,13 @@ type Definition struct {
 	DispatchConfig *runtimeport.DispatchConfig
 }
 
-type ResolvedAgent struct {
-	Definition
-	InstructionText string
-	Model           runtimeport.ChatModel
-	Tools           []runtimeport.Tool
-	Middlewares     []runtimeport.AgentMiddleware
-	ToolMiddleware  []runtimeport.ToolMiddleware
-}
-
-type Resolver struct{}
-
-type Assembler struct{}
-
-func NewDefinition(name, description string) Definition {
-	return Definition{
-		Name:        name,
-		Description: description,
-		Profile:     ProfileWorkspace,
-		TemplateVars: map[string]any{
-			"os_type": runtime.GOOS,
-			"os_arch": runtime.GOARCH,
-		},
-	}
-}
-
+// BuildAgent 将声明解析为唯一的运行配置，并交给运行端口创建智能体。
 func BuildAgent(ctx context.Context, def Definition) (runtimeport.Agent, error) {
-	resolved, err := (Resolver{}).Resolve(ctx, def)
+	agentRuntime, err := runtimeport.RequireAgentRuntime(ctx)
 	if err != nil {
 		return nil, err
 	}
-	return (Assembler{}).Build(ctx, resolved)
-}
 
-func (r Resolver) Resolve(ctx context.Context, def Definition) (*ResolvedAgent, error) {
 	if def.Name == "" {
 		return nil, fmt.Errorf("agent name is required")
 	}
@@ -93,7 +65,7 @@ func (r Resolver) Resolve(ctx context.Context, def Definition) (*ResolvedAgent, 
 	}
 
 	pipelineRuntime, hasPipelineRuntime := runtimeport.PipelineRuntimeFromContext(ctx)
-	coreModel, err := decorateChatModel(ctx, pipelineRuntime, coreModel)
+	coreModel, err = decorateChatModel(ctx, pipelineRuntime, coreModel)
 	if err != nil {
 		return nil, fmt.Errorf("decorate chat model: %w", err)
 	}
@@ -101,7 +73,7 @@ func (r Resolver) Resolve(ctx context.Context, def Definition) (*ResolvedAgent, 
 	instruction := renderInstruction(def.Instruction, def.TemplateVars)
 	cleaner := cleanerFromContext(ctx)
 
-	toolList, err := r.resolveTools(ctx, def, cleaner)
+	toolList, err := resolveTools(ctx, def, cleaner)
 	if err != nil {
 		return nil, err
 	}
@@ -109,22 +81,22 @@ func (r Resolver) Resolve(ctx context.Context, def Definition) (*ResolvedAgent, 
 		return nil, fmt.Errorf("classify tools: %w", err)
 	}
 
-	middlewares, err := r.resolveMiddlewares(ctx, def, coreModel, pipelineRuntime, hasPipelineRuntime, cleaner)
+	middlewares, err := resolveMiddlewares(ctx, def, coreModel, pipelineRuntime, hasPipelineRuntime, cleaner)
 	if err != nil {
 		return nil, err
 	}
 
-	return &ResolvedAgent{
-		Definition:      def,
-		InstructionText: instruction,
-		Model:           coreModel,
-		Tools:           toolList,
-		Middlewares:     append(middlewares, def.Handlers...),
-		ToolMiddleware:  defaultToolMiddlewares(pipelineRuntime, hasPipelineRuntime),
-	}, nil
+	return agentRuntime.NewChatModelAgent(ctx, &runtimeport.ChatAgentConfig{
+		Name: def.Name, Description: def.Description, Instruction: instruction,
+		Model: coreModel, Tools: toolList,
+		Middlewares:        append(middlewares, def.Handlers...),
+		ToolMiddlewares:    defaultToolMiddlewares(pipelineRuntime, hasPipelineRuntime),
+		UnknownToolHandler: unknownToolsHandler,
+		ModelRetryConfig:   retry.NewModelRetryConfig(), MaxIterations: MaxIterations(),
+	})
 }
 
-func (r Resolver) resolveTools(ctx context.Context, def Definition, cleaner *resources.Cleaner) ([]runtimeport.Tool, error) {
+func resolveTools(ctx context.Context, def Definition, cleaner *resources.Cleaner) ([]runtimeport.Tool, error) {
 	toolList := append([]runtimeport.Tool(nil), def.Tools...)
 	if profileIncludesWorkspace(def.Profile) {
 		builtinTools, err := tools.GetBuiltinCapabilityToolsWithCleaner(ctx, cleaner)
@@ -142,7 +114,7 @@ func (r Resolver) resolveTools(ctx context.Context, def Definition, cleaner *res
 	return toolList, nil
 }
 
-func (r Resolver) resolveMiddlewares(ctx context.Context, def Definition, model runtimeport.ChatModel, pipelineRuntime runtimeport.PipelineRuntime, hasPipelineRuntime bool, cleaner *resources.Cleaner) ([]runtimeport.AgentMiddleware, error) {
+func resolveMiddlewares(ctx context.Context, def Definition, model runtimeport.ChatModel, pipelineRuntime runtimeport.PipelineRuntime, hasPipelineRuntime bool, cleaner *resources.Cleaner) ([]runtimeport.AgentMiddleware, error) {
 	if !hasPipelineRuntime {
 		if profileIncludesWorkspace(def.Profile) || def.EnableSummary || def.EnableSkills || def.DispatchConfig != nil {
 			return nil, fmt.Errorf("runtime does not support agent middlewares")
@@ -209,29 +181,6 @@ func (r Resolver) resolveMiddlewares(ctx context.Context, def Definition, model 
 		middlewares = append(middlewares, agentsMDMiddleware)
 	}
 	return middlewares, nil
-}
-
-func (a Assembler) Build(ctx context.Context, resolved *ResolvedAgent) (runtimeport.Agent, error) {
-	if resolved == nil {
-		return nil, fmt.Errorf("resolved agent is nil")
-	}
-	agentRuntime, err := runtimeport.RequireAgentRuntime(ctx)
-	if err != nil {
-		return nil, err
-	}
-	return agentRuntime.NewChatModelAgent(ctx, &runtimeport.ChatAgentConfig{
-		Name:               resolved.Name,
-		Description:        resolved.Description,
-		Instruction:        resolved.InstructionText,
-		Model:              resolved.Model,
-		Tools:              resolved.Tools,
-		ToolMiddlewares:    resolved.ToolMiddleware,
-		UnknownToolHandler: unknownToolsHandler,
-		ModelRetryConfig:   retry.NewModelRetryConfig(),
-		MaxIterations:      MaxIterations(),
-		EmitInternalEvents: true,
-		Middlewares:        resolved.Middlewares,
-	})
 }
 
 func profileIncludesWorkspace(profile Profile) bool {

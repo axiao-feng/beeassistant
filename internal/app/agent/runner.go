@@ -10,7 +10,6 @@ import (
 	"fkteams/internal/app/agent/catalog/toolmeta"
 	"fkteams/internal/app/config"
 	runtimeport "fkteams/internal/ports/runtime"
-	"fkteams/internal/runtime/checkpoint"
 	"fmt"
 	"regexp"
 	"strings"
@@ -82,7 +81,6 @@ func newRunner(ctx context.Context, agent runtimeport.Agent) (runtimeport.Runner
 	return runtime.NewRunner(ctx, runtimeport.RunnerConfig{
 		Agent:           agent,
 		EnableStreaming: true,
-		CheckpointStore: checkpoint.NewMemoryStore(),
 	})
 }
 

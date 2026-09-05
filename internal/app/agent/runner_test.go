@@ -78,8 +78,8 @@ func TestCreateAgentRunnerUsesRuntimeRunnerConfig(t *testing.T) {
 	if !engine.runnerCfg.EnableStreaming {
 		t.Fatal("runner should enable streaming")
 	}
-	if engine.runnerCfg.CheckpointStore == nil {
-		t.Fatal("runner should configure checkpoint store")
+	if engine.runnerCfg.CheckpointStore != nil {
+		t.Fatal("checkpoint lifecycle belongs to the runtime")
 	}
 }
 

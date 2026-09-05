@@ -10,7 +10,7 @@ import (
 	domainevent "fkteams/internal/domain/event"
 	domainmessage "fkteams/internal/domain/message"
 	runtimeport "fkteams/internal/ports/runtime"
-	checkpointmemory "fkteams/internal/runtime/checkpoint/memory"
+	checkpointmemory "fkteams/internal/runtime/checkpoint"
 	"fkteams/internal/testmodel"
 )
 
@@ -40,7 +40,7 @@ func TestDefinitionRunsWithInjectedTestModel(t *testing.T) {
 	runner, err := engine.NewRunner(ctx, runtimeport.RunnerConfig{
 		Agent:           agent,
 		EnableStreaming: true,
-		CheckpointStore: checkpointmemory.NewStore(),
+		CheckpointStore: checkpointmemory.NewMemoryStore(),
 	})
 	if err != nil {
 		t.Fatalf("create runner: %v", err)
@@ -49,8 +49,7 @@ func TestDefinitionRunsWithInjectedTestModel(t *testing.T) {
 	_, err = runner.Run(ctx, domainmessage.TurnInput{
 		Message: domainmessage.Message{Role: domainmessage.RoleUser, Content: "ping"},
 	}, runtimeport.RunOptions{
-		RunID:        "builder-test",
-		CheckpointID: "builder-test",
+		RunID: "builder-test",
 		Sink: func(event domainevent.Event) error {
 			events = append(events, event)
 			return nil

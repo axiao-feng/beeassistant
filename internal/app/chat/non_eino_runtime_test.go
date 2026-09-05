@@ -138,7 +138,7 @@ type fakeRuntimeRunner struct {
 
 func (r *fakeRuntimeRunner) Run(ctx context.Context, input message.TurnInput, opts runtimeport.RunOptions) (*runtimeport.RunResult, error) {
 	r.input = input
-	opts = opts.WithDefaults(opts.CheckpointID)
+	opts = opts.WithDefaults("fake-run")
 	if opts.InterruptHandler != nil {
 		decisions, err := opts.InterruptHandler(ctx, []runtimeport.Interrupt{{ID: "approval-1", Info: "approve?"}})
 		if err != nil {

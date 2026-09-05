@@ -288,9 +288,9 @@ func TestToolApprovalAndPolicyLiveInRuntime(t *testing.T) {
 	}
 }
 
-func TestEinoRuntimeAdapterDoesNotResolveAppTools(t *testing.T) {
+func TestAgentKitAdapterDoesNotResolveAppTools(t *testing.T) {
 	root := filepath.Clean(filepath.Join("..", ".."))
-	adapterRoot := filepath.Join(root, "internal", "adapters", "runtime", "eino")
+	adapterRoot := filepath.Join(root, "internal", "adapters", "runtime", "agentkit")
 	err := filepath.WalkDir(adapterRoot, func(path string, entry fs.DirEntry, walkErr error) error {
 		if walkErr != nil {
 			return walkErr
@@ -352,8 +352,9 @@ func assertBoundary(t *testing.T, rel, importPath string) {
 		forbidden := []string{
 			"fkteams/internal/app",
 			"fkteams/internal/adapters",
-			"fkteams/internal/adapters/runtime/eino",
+			"fkteams/internal/adapters/runtime/agentkit",
 			"github.com/cloudwego/eino",
+			"github.com/wsshow/agentkit",
 			"github.com/gin-gonic/gin",
 			"github.com/pterm/pterm",
 		}
@@ -362,9 +363,10 @@ func assertBoundary(t *testing.T, rel, importPath string) {
 		forbidden := []string{
 			"fkteams/internal/app",
 			"fkteams/internal/adapters",
-			"fkteams/internal/adapters/runtime/eino",
+			"fkteams/internal/adapters/runtime/agentkit",
 			"fkteams/internal/runtime",
 			"github.com/cloudwego/eino",
+			"github.com/wsshow/agentkit",
 			"github.com/gin-gonic/gin",
 		}
 		assertNotImported(t, rel, importPath, forbidden)
@@ -372,11 +374,12 @@ func assertBoundary(t *testing.T, rel, importPath string) {
 		forbidden := []string{
 			"fkteams/agentcore",
 			"fkteams/internal/adapters",
-			"fkteams/internal/adapters/runtime/eino",
+			"fkteams/internal/adapters/runtime/agentkit",
 			"github.com/go-git/go-git",
 			"github.com/mark3labs/mcp-go",
 			"github.com/pkg/sftp",
 			"github.com/cloudwego/eino",
+			"github.com/wsshow/agentkit",
 			"github.com/gin-gonic/gin",
 			"github.com/pterm/pterm",
 			"os/exec",
@@ -387,8 +390,9 @@ func assertBoundary(t *testing.T, rel, importPath string) {
 		forbidden := []string{
 			"fkteams/agentcore",
 			"fkteams/internal/adapters",
-			"fkteams/internal/adapters/runtime/eino",
+			"fkteams/internal/adapters/runtime/agentkit",
 			"github.com/cloudwego/eino",
+			"github.com/wsshow/agentkit",
 			"github.com/gin-gonic/gin",
 			"github.com/pterm/pterm",
 			"net/http",
@@ -398,8 +402,9 @@ func assertBoundary(t *testing.T, rel, importPath string) {
 		forbidden := []string{
 			"fkteams/agentcore",
 			"fkteams/internal/adapters",
-			"fkteams/internal/adapters/runtime/eino",
+			"fkteams/internal/adapters/runtime/agentkit",
 			"github.com/cloudwego/eino",
+			"github.com/wsshow/agentkit",
 			"github.com/gin-gonic/gin",
 		}
 		assertNotImported(t, rel, importPath, forbidden)
@@ -630,7 +635,7 @@ func TestRuntimeRegistryUsesInternalPackage(t *testing.T) {
 		}
 		for _, spec := range file.Imports {
 			if strings.Trim(spec.Path.Value, `"`) == "fkteams/agentcore/runtime" {
-				t.Errorf("%s imports removed agentcore/runtime package; use internal/runtime/registry", rel)
+				t.Errorf("%s imports removed agentcore/runtime package; inject internal/ports/runtime capabilities", rel)
 			}
 		}
 		return nil
@@ -700,12 +705,11 @@ func TestTransportLayerDoesNotUseTurnRuntimeDirectly(t *testing.T) {
 	}
 }
 
-func TestBootstrapAndRuntimeRegistryDoNotPanic(t *testing.T) {
+func TestBootstrapDoesNotPanic(t *testing.T) {
 	root := filepath.Clean(filepath.Join("..", ".."))
 	files := []string{
 		filepath.Join(root, "internal", "bootstrap", "runtimes", "runtimes.go"),
 		filepath.Join(root, "internal", "bootstrap", "tools", "tools.go"),
-		filepath.Join(root, "internal", "runtime", "registry", "runtime.go"),
 		filepath.Join(root, "internal", "app", "tools", "registry.go"),
 	}
 	for _, path := range files {
@@ -740,15 +744,7 @@ func TestBootstrapDoesNotAutoRegisterInInit(t *testing.T) {
 func TestRuntimeCompositionDoesNotExposeProcessDefaults(t *testing.T) {
 	root := filepath.Clean(filepath.Join("..", ".."))
 	checks := map[string][]string{
-		"internal/runtime/registry/runtime.go": {
-			"var registry",
-			"func DefaultRuntime()",
-			"func Register(",
-			"func Use(",
-			"func DefaultName()",
-			"func DefaultRuntimeByName(",
-			"func RegisteredNames()",
-		},
+
 		"internal/bootstrap/runtimes/runtimes.go": {
 			"sync.Once",
 			"registerOnce",
@@ -846,7 +842,7 @@ func TestRemovedRuntimeAndBuilderAPIsDoNotReturn(t *testing.T) {
 func TestModelProvidersRegisterExplicitly(t *testing.T) {
 	root := filepath.Clean(filepath.Join("..", ".."))
 	for _, rel := range []string{
-		"internal/adapters/runtime/eino/providers/register/register.go",
+		"internal/adapters/runtime/agentkit/providers/register/register.go",
 		"internal/adapters/model/providers/providers.go",
 	} {
 		path := filepath.Join(root, filepath.FromSlash(rel))
@@ -1840,7 +1836,7 @@ func TestModelProvidersUseRuntimePortsDirectly(t *testing.T) {
 	root := filepath.Clean(filepath.Join("..", ".."))
 	for _, dir := range []string{
 		"internal/adapters/model/providers",
-		"internal/adapters/runtime/eino/providers",
+		"internal/adapters/runtime/agentkit/providers",
 	} {
 		err := filepath.WalkDir(filepath.Join(root, filepath.FromSlash(dir)), func(path string, entry fs.DirEntry, walkErr error) error {
 			if walkErr != nil {
@@ -2017,9 +2013,9 @@ func TestServerHandlersUseDomainAndRuntimePorts(t *testing.T) {
 	}
 }
 
-func TestEinoAdapterUsesDomainAndRuntimePorts(t *testing.T) {
+func TestAgentKitAdapterUsesDomainAndRuntimePorts(t *testing.T) {
 	root := filepath.Clean(filepath.Join("..", ".."))
-	err := filepath.WalkDir(filepath.Join(root, "internal", "adapters", "runtime", "eino"), func(path string, entry fs.DirEntry, walkErr error) error {
+	err := filepath.WalkDir(filepath.Join(root, "internal", "adapters", "runtime", "agentkit"), func(path string, entry fs.DirEntry, walkErr error) error {
 		if walkErr != nil {
 			return walkErr
 		}
@@ -2040,7 +2036,7 @@ func TestEinoAdapterUsesDomainAndRuntimePorts(t *testing.T) {
 		}
 		for _, spec := range file.Imports {
 			if strings.Trim(spec.Path.Value, `"`) == "fkteams/agentcore" {
-				t.Errorf("%s imports agentcore; Eino adapter must use internal/ports/runtime and domain types directly", rel)
+				t.Errorf("%s imports agentcore; AgentKit adapter must use internal/ports/runtime and domain types directly", rel)
 			}
 		}
 		return nil

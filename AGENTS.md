@@ -2,7 +2,7 @@
 
 ## 项目概览
 
-fkteams 是基于 CloudWeGo Eino ADK 的 Go 多智能体协作系统，提供 CLI/TUI、Web UI、OpenAI 兼容 API，以及 Discord、QQ、微信消息通道。前端位于 `web/`，构建产物通过 `//go:embed` 嵌入 Go 二进制。
+fkteams 是基于 AgentKit（底层为 CloudWeGo Eino ADK）的 Go 多智能体协作系统，提供 CLI/TUI、Web UI、OpenAI 兼容 API，以及 Discord、QQ、微信消息通道。前端位于 `web/`，构建产物通过 `//go:embed` 嵌入 Go 二进制。
 
 本文件适用于整个仓库。若子目录以后增加更具体的 `AGENTS.md`，只写该子树的增量规则；冲突时以更具体的文件和用户当次指令为准。
 
@@ -55,9 +55,9 @@ cmd -> bootstrap -> adapters -> app/runtime -> ports -> domain
 
 - `internal/domain` 只放领域模型和值对象，不依赖框架、SDK、`app`、`runtime` 或 `adapters`。
 - `internal/ports` 定义运行时无关契约，不依赖 `app`、`runtime` 或具体 adapter。
-- `internal/app` 实现用例，不导入具体 adapter、Eino 或终端展示库。
+- `internal/app` 实现用例，不导入具体 adapter、AgentKit、Eino 或终端展示库。
 - `internal/runtime` 提供运行时无关内核，不依赖 `app` 或具体 adapter。
-- `internal/adapters` 实现外部技术和传输协议；Eino 只能出现在 `internal/adapters/runtime/eino`。
+- `internal/adapters` 实现外部技术和传输协议；AgentKit、Eino 及其 SDK 只能出现在 `internal/adapters/runtime/agentkit`。
 - `internal/bootstrap` 是组合根，负责创建并连接 runtime、模型、工具、存储和后台服务。
 - `cmd/fkteams/main.go` 保持最小化，只连接组合根和 CLI 命令入口。
 
@@ -95,6 +95,8 @@ cmd -> bootstrap -> adapters -> app/runtime -> ports -> domain
 - 新内置智能体以 `common.Definition` 声明，通过 `common.BuildAgent()` 创建；参考 `internal/app/agent/catalog/common/definition.go`。
 - 在 `internal/app/agent/catalog/registry.go` 的 `builtinAgentSpecs()` 中声明元信息和默认 definition，最终由 `buildRegistry()` 生成目录。
 - 每个内置智能体目录保留 agent 定义/工厂与独立的系统提示词模板。
+- 普通、团队、Deep 与后台子任务统一使用 AgentKit 执行；不直接创建 ADK Runner 或预构建智能体。
+- 智能体声明可缓存，运行会话和检查点由每次 Run 持有；不要把会话历史放进共享 Runner。
 
 ### 工具
 
@@ -113,7 +115,7 @@ cmd -> bootstrap -> adapters -> app/runtime -> ports -> domain
 
 - 新后台服务实现 `internal/app/lifecycle.Service` 的 `Name`、`Start`、`Stop`；具体组合层服务放在 `internal/bootstrap/services`。
 - 服务按注册顺序启动，按逆序（LIFO）停止。
-- `Session.OnInterrupt` 未设置时必须保持固定拒绝的安全默认值。
+- `turn.Request.OnInterrupt` 未设置时必须保持固定拒绝的安全默认值。
 
 ### 事件、Hooks 与流式任务
 

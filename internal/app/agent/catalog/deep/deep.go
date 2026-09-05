@@ -94,10 +94,12 @@ func NewAgent(ctx context.Context, subAgents []runtimeport.Agent) (runtimeport.A
 		Tools:            toolList,
 		MaxIterations:    deepMaxIterations(deepCfg.MaxIterations),
 		Middlewares:      middlewares,
+		ToolMiddlewares:  pipelineRuntime.DefaultToolMiddlewares(),
 		Planning: runtimeport.DeepPlanningConfig{
 			Enabled: deepCfg.Planning.Enabled,
 		},
 		Workspace: runtimeport.DeepWorkspaceConfig{
+			Dir:     common.WorkspaceDir(),
 			Enabled: deepCfg.Workspace.Enabled,
 		},
 		Shell: runtimeport.DeepShellConfig{
@@ -108,10 +110,6 @@ func NewAgent(ctx context.Context, subAgents []runtimeport.Agent) (runtimeport.A
 		Delegation: runtimeport.DeepDelegationConfig{
 			GeneralAgent:        deepCfg.Delegation.GeneralAgent,
 			TaskToolDescription: deepCfg.Delegation.TaskToolDescription,
-		},
-		Context: runtimeport.DeepContextConfig{
-			Summary:  deepCfg.Context.Summary,
-			AgentsMD: deepCfg.Context.AgentsMD,
 		},
 		Output: runtimeport.DeepOutputConfig{
 			Key: deepCfg.Output.Key,

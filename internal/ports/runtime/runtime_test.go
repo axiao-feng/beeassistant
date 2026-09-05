@@ -9,10 +9,10 @@ import (
 )
 
 func TestRunOptionsWithDefaults(t *testing.T) {
-	opts := RunOptions{CheckpointID: "checkpoint-1"}.WithDefaults("default-run")
+	opts := RunOptions{RunID: "run-1"}.WithDefaults("default-run")
 
-	if opts.RunID != "checkpoint-1" {
-		t.Fatalf("run id = %q, want checkpoint-1", opts.RunID)
+	if opts.RunID != "run-1" {
+		t.Fatalf("run id = %q, want run-1", opts.RunID)
 	}
 	if opts.Sink == nil {
 		t.Fatal("sink was not defaulted")

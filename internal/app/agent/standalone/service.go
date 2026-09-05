@@ -11,7 +11,6 @@ import (
 	domainmessage "fkteams/internal/domain/message"
 	runtimeport "fkteams/internal/ports/runtime"
 	storageport "fkteams/internal/ports/storage"
-	"fkteams/internal/runtime/checkpoint"
 )
 
 type TextDeltaSink func(delta string) error
@@ -37,7 +36,6 @@ type Request struct {
 	Input   string
 
 	RunID           string
-	CheckpointID    string
 	CheckpointStore storageport.CheckpointStore
 	EventSink       runtimeport.EventSink
 }
@@ -102,21 +100,16 @@ func (s *Service) run(ctx context.Context, req Request, streaming bool, onDelta 
 		return nil, fmt.Errorf("build standalone agent: %w", err)
 	}
 
-	store := req.CheckpointStore
-	if store == nil {
-		store = checkpoint.NewMemoryStore()
-	}
 	runner, err := s.deps.RunnerRuntime.NewRunner(ctx, runtimeport.RunnerConfig{
 		Agent:           agent,
 		EnableStreaming: streaming,
-		CheckpointStore: store,
+		CheckpointStore: req.CheckpointStore,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("create standalone runner: %w", err)
 	}
 
 	runID := firstNonEmpty(req.RunID, req.Name)
-	checkpointID := firstNonEmpty(req.CheckpointID, runID)
 	var text strings.Builder
 	completedText := ""
 
@@ -124,8 +117,7 @@ func (s *Service) run(ctx context.Context, req Request, streaming bool, onDelta 
 		Context: req.Context,
 		Message: requestMessage(req),
 	}, runtimeport.RunOptions{
-		RunID:        runID,
-		CheckpointID: checkpointID,
+		RunID: runID,
 		Sink: func(event domainevent.Event) error {
 			switch event.Type {
 			case domainevent.TypeAssistantText:

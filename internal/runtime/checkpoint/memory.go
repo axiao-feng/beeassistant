@@ -34,3 +34,14 @@ func (s *MemoryStore) Get(ctx context.Context, key string) ([]byte, bool, error)
 	}
 	return append([]byte(nil), v...), true, nil
 }
+
+// Delete 删除已结束运行的检查点，避免复用 Runner 时积累失效状态。
+func (s *MemoryStore) Delete(ctx context.Context, key string) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	delete(s.mem, key)
+	return nil
+}

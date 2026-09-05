@@ -15,11 +15,6 @@ func MaxIterations() int {
 	return retry.MaxIterations()
 }
 
-const (
-	// MaxRetries 最大重试次数
-	MaxRetries = retry.MaxRetries
-)
-
 // WorkspaceDir 返回工作目录
 func WorkspaceDir() string {
 	return config.Get().WorkspaceDir()
@@ -53,9 +48,4 @@ func NewChatModelWithConfig(ctx context.Context, cfg *modelregistry.Config) (run
 		return nil, err
 	}
 	return registry.NewChatModel(ctx, cfg)
-}
-
-// IsRetryAble 判断错误是否可重试（转发到 common 包）
-func IsRetryAble(ctx context.Context, err error) bool {
-	return retry.IsRetryable(ctx, err)
 }

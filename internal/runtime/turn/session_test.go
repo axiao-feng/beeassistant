@@ -45,9 +45,6 @@ func TestExecutorRunUsesConfiguredRunID(t *testing.T) {
 	if runner.opts.RunID != "run-1" {
 		t.Fatalf("run id = %q, want run-1", runner.opts.RunID)
 	}
-	if runner.opts.CheckpointID != "session-1" {
-		t.Fatalf("checkpoint id = %q, want session-1", runner.opts.CheckpointID)
-	}
 }
 
 func TestExecutorRunConfiguresRequestCapabilities(t *testing.T) {

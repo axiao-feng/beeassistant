@@ -96,7 +96,7 @@ wss://<host>/ws
 ```json
 {
   "type": "connected",
-  "message": "欢迎连接到非空小队"
+  "message": "欢迎连接到蜜蜂助手"
 }
 ```
 

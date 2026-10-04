@@ -1,6 +1,6 @@
 # MCP 工具集成指南
 
-fkteams 可以通过 MCP 接入外部工具和数据源。MCP 服务在 `~/.fkteams/config/config.toml` 的 `[[tools.mcp_servers]]` 中配置。
+蜜蜂助手可以通过 MCP 接入外部工具和数据源。MCP 服务在 `~/.fkteams/config/config.toml` 的 `[[tools.mcp_servers]]` 中配置。
 
 ## 配置示例
 

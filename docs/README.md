@@ -1,6 +1,6 @@
-# fkteams 文档中心
+# 蜜蜂助手文档中心
 
-这里汇总 fkteams 的使用、配置、扩展、接口和架构文档。第一次使用建议先阅读[使用指南](./usage.md)和[配置指南](./configuration.md)。
+这里汇总蜜蜂助手的使用、配置、扩展、接口和架构文档。第一次使用建议先阅读[使用指南](./usage.md)和[配置指南](./configuration.md)。
 
 ## 入门
 
@@ -59,8 +59,8 @@
 
 ### Web
 
-![fkteams Web 主界面](./images/fkteams_web_main.png)
+![蜜蜂助手 Web 主界面](./images/fkteams_web_main.png)
 
 ### 终端
 
-![fkteams 终端 TUI](./images/fkteams_tui_main.png)
+![蜜蜂助手终端 TUI](./images/fkteams_tui_main.png)

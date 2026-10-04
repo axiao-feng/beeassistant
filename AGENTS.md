@@ -1,8 +1,8 @@
-# fkteams 开发指南
+# 蜜蜂助手开发指南
 
 ## 项目概览
 
-fkteams 是基于 AgentKit（底层为 CloudWeGo Eino ADK）的 Go 多智能体协作系统，提供 CLI/TUI、Web UI、OpenAI 兼容 API，以及 Discord、QQ、微信消息通道。前端位于 `web/`，构建产物通过 `//go:embed` 嵌入 Go 二进制。
+蜜蜂助手是基于 AgentKit（底层为 CloudWeGo Eino ADK）的 Go 个人综合助手，提供 CLI/TUI、Web UI、OpenAI 兼容 API，以及 Discord、QQ、微信消息通道。前端位于 `web/`，构建产物通过 `//go:embed` 嵌入 Go 二进制。
 
 本文件适用于整个仓库。若子目录以后增加更具体的 `AGENTS.md`，只写该子树的增量规则；冲突时以更具体的文件和用户当次指令为准。
 

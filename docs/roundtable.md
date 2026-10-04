@@ -5,9 +5,9 @@
 ## 启动方式
 
 ```bash
-fkteams -m group
-fkteams -m group -q "讨论一下微服务架构的优劣"
-fkteams web
+beeteams -m group
+beeteams -m group -q "讨论一下微服务架构的优劣"
+beeteams web
 ```
 
 ## 配置

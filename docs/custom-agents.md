@@ -3,7 +3,7 @@
 自定义智能体在 `~/.fkteams/config/config.toml` 的 `[[agents.items]]` 中定义。保存配置后会注册到全局智能体目录，可用于：
 
 - 在聊天中通过 `@智能体ID` 指定单个智能体。
-- 通过 `fkteams agent -n <智能体ID>` 单独运行。
+- 通过 `beeteams agent -n <智能体ID>` 单独运行。
 - 在团队模式中由协调者按需调度。
 
 ## 配置示例
@@ -48,10 +48,10 @@ enabled = true
 
 ```bash
 # 直接查询
-fkteams agent -n frontend -q "帮我创建一个 React 项目"
+beeteams agent -n frontend -q "帮我创建一个 React 项目"
 
 # 交互模式
-fkteams agent -n frontend
+beeteams agent -n frontend
 ```
 
 ## 工具选择

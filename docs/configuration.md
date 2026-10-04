@@ -3,7 +3,7 @@
 配置文件位于 `~/.fkteams/config/config.toml`，可通过下面命令生成示例：
 
 ```bash
-fkteams generate config
+beeteams generate config
 ```
 
 ## 模型池

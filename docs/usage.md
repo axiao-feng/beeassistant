@@ -7,7 +7,7 @@
 启动 Web 服务器，通过浏览器访问：
 
 ```bash
-fkteams web
+beeteams web
 ```
 
 启动后访问 `http://localhost:23456` 即可使用 Web 界面。
@@ -28,10 +28,10 @@ Web 界面特性：
 启动不带 Web 界面的纯 API 服务，适合作为后端接口独立部署：
 
 ```bash
-fkteams serve
+beeteams serve
 
 # 指定监听地址和端口
-fkteams serve --host 0.0.0.0 --port 8080
+beeteams serve --host 0.0.0.0 --port 8080
 ```
 
 提供与 Web 模式相同的 API 接口和 WebSocket 服务，但不包含前端页面。详细接口文档请参考 [API 文档](./api/README.md)。
@@ -42,13 +42,13 @@ fkteams serve --host 0.0.0.0 --port 8080
 
 ```bash
 # 默认启动团队模式
-fkteams
+beeteams
 
 # 启动深度分析模式
-fkteams -m deep
+beeteams -m deep
 
 # 启动多智能体讨论模式
-fkteams -m group
+beeteams -m group
 ```
 
 ### 从源码编译运行
@@ -61,16 +61,16 @@ make web-build
 go run ./cmd/fkteams web
 
 # Web界面模式
-./release/fkteams_darwin_arm64 web
+./release/beeteams_darwin_arm64 web
 
 # 默认启动团队模式
-./release/fkteams_darwin_arm64
+./release/beeteams_darwin_arm64
 
 # 启动深度分析模式
-./release/fkteams_darwin_arm64 -m deep
+./release/beeteams_darwin_arm64 -m deep
 
 # 启动多智能体讨论模式
-./release/fkteams_darwin_arm64 -m group
+./release/beeteams_darwin_arm64 -m group
 ```
 
 完整的构建环境、跨平台编译和前端开发说明见[部署指南](./deployment.md)。
@@ -80,29 +80,29 @@ go run ./cmd/fkteams web
 推荐通过交互式向导配置模型：
 
 ```bash
-fkteams login
+beeteams login
 ```
 
 也可以直接指定服务商：
 
 ```bash
-fkteams login openai
-fkteams login deepseek
-fkteams login copilot
+beeteams login openai
+beeteams login deepseek
+beeteams login copilot
 ```
 
 GitHub Copilot 用户需要有效订阅，可以使用设备码登录，也可以导入 VS Code 已保存的 token：
 
 ```bash
-fkteams login copilot --import
+beeteams login copilot --import
 ```
 
 常用管理命令：
 
 ```bash
-fkteams model ls
-fkteams model rm
-fkteams logout openai
+beeteams model ls
+beeteams model rm
+beeteams logout openai
 ```
 
 如果需要直接编辑 TOML、配置自定义 OpenAI 兼容服务或指定不同用途的默认模型，请参考[配置指南](./configuration.md)。
@@ -128,7 +128,7 @@ fkteams logout openai
 
 **使用流程**：
 
-1. 启动 Web 服务：`./fkteams web`
+1. 启动 Web 服务：`./beeteams web`
 2. 浏览器访问：`http://localhost:23456`
 3. 在界面中选择工作模式（团队模式/深度模式/圆桌讨论模式）
 4. 开始对话，实时查看 AI 回复和工具执行过程
@@ -145,14 +145,14 @@ fkteams logout openai
 
 **使用流程**：
 
-1. 启动：`./fkteams -m team`
+1. 启动：`./beeteams -m team`
 2. 输入任务描述
 3. 查看实时输出和工具调用
 4. 使用内置命令管理历史和模式切换
 
 ## Web 界面使用
 
-1. 启动 Web 服务：`./fkteams web`
+1. 启动 Web 服务：`./beeteams web`
 2. 打开浏览器访问：`http://localhost:23456`
 3. 在聊天界面输入你的问题或任务
 4. 实时查看 AI 助手的回复和工具调用过程
@@ -210,7 +210,7 @@ list_agents
 # 切换到 researcher 并搜索信息
 @researcher 查找最新的 Go 语言教程
 
-# 向非空小助手咨询项目配置
+# 向蜜蜂助手帮助咨询项目配置
 @fkteams_helper 如何配置一个 stdio MCP 服务？
 ```
 
@@ -221,7 +221,7 @@ list_agents
 - `@coordinator` - 协调者，直接处理常规任务并按需调度成员
 - `@coder` - 软件工程师，代码实现、调试、重构和验证
 - `@researcher` - 网络研究员，擅长检索、抓取和交叉验证时效信息
-- `@fkteams_helper` - 非空小助手，解答 fkteams 安装、配置、使用、扩展和故障排查问题
+- `@fkteams_helper` - 蜜蜂助手帮助，解答蜜蜂助手安装、配置、使用、扩展和故障排查问题
 - `@analyst` - 数据分析师，擅长使用 Excel、Python 脚本和文档处理工具
 - `@remote` - 远程运维专家，擅长通过 SSH 连接远程服务器
 - `@generalist` - 通用执行助手，综合命令、文件、搜索等工具完成任务
@@ -275,28 +275,28 @@ delete_schedule
 
 ```bash
 # 默认交互模式
-./fkteams
+./beeteams
 
 # 直接查询模式
-./fkteams -q "你的问题"
+./beeteams -q "你的问题"
 
 # 管道输入模式
-echo "解释一下 Go 的 context 包" | ./fkteams
+echo "解释一下 Go 的 context 包" | ./beeteams
 
 # 管道传入文件内容
-cat main.go | ./fkteams -q "审查这段代码"
+cat main.go | ./beeteams -q "审查这段代码"
 
 # 管道与 agent 子命令配合
-cat error.log | ./fkteams agent -n coder -q "分析这个错误日志"
+cat error.log | ./beeteams agent -n coder -q "分析这个错误日志"
 
 # 指定工作模式
-./fkteams -m deep
+./beeteams -m deep
 
 # 恢复历史会话（交互模式）
-./fkteams -r "20260302_091249"
+./beeteams -r "20260302_091249"
 
 # 恢复历史会话并直接查询
-./fkteams -r "20260302_091249" -q "继续上次的问题"
+./beeteams -r "20260302_091249" -q "继续上次的问题"
 ```
 
 ### 子命令
@@ -336,20 +336,20 @@ cat error.log | ./fkteams agent -n coder -q "分析这个错误日志"
 
 ### 管道输入
 
-支持通过 Unix 管道将内容传递给 fkteams，自动进入非交互模式：
+支持通过 Unix 管道将内容传递给 beeteams，自动进入非交互模式：
 
 ```bash
 # 管道内容作为查询
-echo "帮我解释这段代码的作用" | ./fkteams
+echo "帮我解释这段代码的作用" | ./beeteams
 
 # 管道内容 + -q 参数组合（-q 作为指令前缀，管道内容附在其后）
-cat src/main.go | ./fkteams -q "审查以下代码并指出问题:"
+cat src/main.go | ./beeteams -q "审查以下代码并指出问题:"
 
 # 与 agent 子命令配合
-git diff HEAD~1 | ./fkteams agent -n coder -q "审查这次提交的改动"
+git diff HEAD~1 | ./beeteams agent -n coder -q "审查这次提交的改动"
 
 # 与其他工具链组合
-curl -s https://example.com/api | ./fkteams -q "解析这个 API 响应"
+curl -s https://example.com/api | ./beeteams -q "解析这个 API 响应"
 ```
 
 **规则**：
@@ -373,20 +373,20 @@ curl -s https://example.com/api | ./fkteams -q "解析这个 API 响应"
 
 ```bash
 # 列出所有可用的 Agent
-./fkteams agent list
+./beeteams agent list
 
 # 直接查询（默认保存历史）
-./fkteams agent --name researcher --query "搜索最新的 Go 语言新闻"
+./beeteams agent --name researcher --query "搜索最新的 Go 语言新闻"
 
-# 查询 fkteams 的使用和扩展方式
-./fkteams agent -n fkteams_helper -q "如何创建自定义工具和流程 Hook？"
+# 查询蜜蜂助手的使用和扩展方式
+./beeteams agent -n fkteams_helper -q "如何创建自定义工具和流程 Hook？"
 
 # JSON 格式输出原始事件
-./fkteams agent -n researcher -q "搜索最新的 Go 语言新闻" --format json
+./beeteams agent -n researcher -q "搜索最新的 Go 语言新闻" --format json
 
 # 临时查询，不保存历史
-./fkteams agent -n researcher -q "搜索最新的 Go 语言新闻" --temporary
+./beeteams agent -n researcher -q "搜索最新的 Go 语言新闻" --temporary
 
 # 交互模式（进入指定 Agent 的对话）
-./fkteams agent -n coder
+./beeteams agent -n coder
 ```

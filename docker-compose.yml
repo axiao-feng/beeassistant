@@ -1,7 +1,7 @@
 services:
-  fkteams:
+  beeteams:
     build: .
-    container_name: fkteams
+    container_name: beeteams
     restart: unless-stopped
     ports:
       - "23456:23456"

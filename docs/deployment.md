@@ -7,27 +7,27 @@
 Linux / macOS：
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/wsshow/feikong-teams/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/axiao-feng/beeassistant/main/install.sh | bash
 ```
 
 Windows PowerShell：
 
 ```powershell
-powershell -c "irm https://raw.githubusercontent.com/wsshow/feikong-teams/main/install.ps1 | iex"
+powershell -c "irm https://raw.githubusercontent.com/axiao-feng/beeassistant/main/install.ps1 | iex"
 ```
 
-也可以从 [GitHub Releases](https://github.com/wsshow/feikong-teams/releases) 下载对应平台的压缩包。
+也可以从 [GitHub Releases](https://github.com/axiao-feng/beeassistant/releases) 下载对应平台的压缩包。
 
-如需修改安装目录，请在运行脚本前设置 `FKTEAMS_INSTALL_DIR`：
+如需修改安装目录，请在运行脚本前设置 `BEETEAMS_INSTALL_DIR`：
 
 ```bash
 # Linux / macOS
-export FKTEAMS_INSTALL_DIR=/your/path
+export BEETEAMS_INSTALL_DIR=/your/path
 ```
 
 ```powershell
 # Windows PowerShell
-$env:FKTEAMS_INSTALL_DIR = "D:\fkteams"
+$env:BEETEAMS_INSTALL_DIR = "D:\beeteams"
 ```
 
 ## 从源码构建
@@ -48,7 +48,7 @@ make all
 make clean
 ```
 
-构建产物写入 `release/fkteams_<goos>_<goarch>`，Windows 产物带 `.exe` 后缀。
+构建产物写入 `release/beeteams_<goos>_<goarch>`，Windows 产物带 `.exe` 后缀。
 
 ### 源码开发运行
 
@@ -90,7 +90,7 @@ mkdir -p data
 docker run --rm \
   -e FEIKONG_APP_DIR=/app \
   -v ./data:/app \
-  fkteams generate config
+  beeteams generate config
 ```
 
 3. 启动服务：
@@ -101,17 +101,17 @@ docker compose up -d
 
 访问 http://localhost:23456 即可使用。
 
-Docker 镜像默认使用 `web --host 0.0.0.0` 启动；本机直接运行 `fkteams web` 时仍保留配置文件中的监听地址。
+Docker 镜像默认使用 `web --host 0.0.0.0` 启动；本机直接运行 `beeteams web` 时仍保留配置文件中的监听地址。
 
 ### 使用 docker run
 
 ```bash
 # 构建镜像
-docker build -t fkteams .
+docker build -t beeteams .
 
 # 运行容器
 docker run -d \
-  --name fkteams \
+  --name beeteams \
   -p 23456:23456 \
   -e FEIKONG_APP_DIR=/app \
   -v ./data/config:/app/config \
@@ -122,7 +122,7 @@ docker run -d \
   -v ./data/share:/app/share \
   -v ./data/skills:/app/skills \
   -v ./data/log:/app/log \
-  fkteams
+  beeteams
 ```
 
 ### 说明

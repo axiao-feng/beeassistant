@@ -1,6 +1,6 @@
 # 事件协议
 
-fkteams 的 CLI、Web、HTTP Stream、WebSocket 和聊天通道共用统一事件协议。事件由 `event_id`、`sequence`、`created_at` 标识顺序和时间，由 `type` 表示生命周期节点：`agent_started/completed`、`turn_started/completed`、`assistant_*`、`tool_call_*`、`ask_*`、`approval_*`、`member_*`、`system_notice`、`usage_reported`、`error`。
+蜜蜂助手的 CLI、Web、HTTP Stream、WebSocket 和聊天通道共用统一事件协议。事件由 `event_id`、`sequence`、`created_at` 标识顺序和时间，由 `type` 表示生命周期节点：`agent_started/completed`、`turn_started/completed`、`assistant_*`、`tool_call_*`、`ask_*`、`approval_*`、`member_*`、`system_notice`、`usage_reported`、`error`。
 
 ## 核心约定
 

@@ -129,13 +129,13 @@ func TestCacheGetOrCreateRunsSingleFactoryConcurrently(t *testing.T) {
 	}
 }
 
-func TestResolveFactoryDefaultsToTeam(t *testing.T) {
+func TestResolveFactoryDefaultsToGeneralist(t *testing.T) {
 	key, factory, err := resolveFactory(context.Background(), "", "", false)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if key != ModeTeam {
-		t.Fatalf("expected team key, got %q", key)
+	if key != ModeGeneralist {
+		t.Fatalf("expected generalist key, got %q", key)
 	}
 	if factory == nil {
 		t.Fatal("expected factory")

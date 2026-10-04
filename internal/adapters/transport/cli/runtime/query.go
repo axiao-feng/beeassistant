@@ -252,7 +252,7 @@ func NewDirectSessionID() string {
 func (e *QueryExecutor) Execute(ctx context.Context, input string) error {
 	session := e.session
 	if session == nil {
-		session = NewSession(ModeTeam, nil, nil)
+		session = NewSession(ModeGeneralist, nil, nil)
 		session.activateSession(false)
 	}
 	recorder := session.recorder()

@@ -74,7 +74,7 @@ func (rt *Runtime) StreamStartHandlerWithState(state *appstate.State) gin.Handle
 
 		mode := req.Mode
 		if mode == "" {
-			mode = "team"
+			mode = "generalist"
 		}
 
 		ctx := appstate.WithState(context.Background(), state)
@@ -421,13 +421,13 @@ func (rt *Runtime) runStreamTask(ctx context.Context, stream *taskstream.Stream,
 					stream.SetStatus("cancelled")
 					stream.Publish(cancelledEventPayload(sessionID, currentRunID, "任务已取消"))
 				}
-				rt.finishCancelledChat(recorder, sessionID, currentDisplayText)
+				rt.finishCancelledChat(recorder, sessionID, currentDisplayText, manager)
 				return
 			}
 			log.Printf("stream task error: session=%s, err=%v", sessionID, runErr)
 			stream.SetStatus("error")
 			stream.Publish(errorEventPayload(sessionID, runErr.Error()))
-			rt.finishErrorChat(recorder, sessionID, currentDisplayText, runErr)
+			rt.finishErrorChat(recorder, sessionID, currentDisplayText, runErr, manager)
 			return
 		}
 
@@ -446,7 +446,7 @@ func (rt *Runtime) runStreamTask(ctx context.Context, stream *taskstream.Stream,
 
 		if stream.Status() != "completed" {
 			if stream.Status() == "cancelled" {
-				rt.finishCancelledChat(recorder, sessionID, currentDisplayText)
+				rt.finishCancelledChat(recorder, sessionID, currentDisplayText, manager)
 			}
 			return
 		}

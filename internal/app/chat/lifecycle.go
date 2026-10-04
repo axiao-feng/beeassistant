@@ -57,6 +57,10 @@ type MemoryExtractor interface {
 	FlushExtract(ctx context.Context, messages []domainmemory.Message, sessionID string)
 }
 
+type BehavioralMemoryExtractor interface {
+	ExtractBehavioralAndStoreAsync(messages []domainmemory.Message, sessionID string) bool
+}
+
 type FinishRequest struct {
 	SessionID       string
 	TitleSource     string
@@ -141,6 +145,8 @@ func (l *SessionLifecycle) Finish(ctx context.Context, req FinishRequest) error 
 	}
 	if req.Status == SessionStatusCompleted {
 		ExtractMemoryAsync(req.Memory, req.MemoryMessages, req.SessionID)
+	} else if req.Status == SessionStatusCancelled || req.Status == SessionStatusError {
+		ExtractBehavioralMemoryAsync(req.Memory, req.MemoryMessages, req.SessionID)
 	}
 	return nil
 }
@@ -183,6 +189,17 @@ func ExtractMemoryAsync(manager MemoryExtractor, messages []domainmemory.Message
 	copied := append([]domainmemory.Message(nil), messages...)
 	if !manager.ExtractAndStoreAsync(copied, sessionID) {
 		log.Printf("[memory] async extraction was not scheduled: session=%s", sessionID)
+	}
+}
+
+func ExtractBehavioralMemoryAsync(manager MemoryExtractor, messages []domainmemory.Message, sessionID string) {
+	behavioralManager, ok := manager.(BehavioralMemoryExtractor)
+	if !ok || len(messages) == 0 {
+		return
+	}
+	copied := append([]domainmemory.Message(nil), messages...)
+	if !behavioralManager.ExtractBehavioralAndStoreAsync(copied, sessionID) {
+		log.Printf("[memory] behavioral extraction was not scheduled: session=%s", sessionID)
 	}
 }
 

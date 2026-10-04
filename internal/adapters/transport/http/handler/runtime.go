@@ -371,24 +371,28 @@ func (rt *Runtime) finishChat(recorder *eventlog.HistoryRecorder, sessionID, use
 	appchat.LogLifecycleError("http", sessionID, err)
 }
 
-func (rt *Runtime) finishCancelledChat(recorder *eventlog.HistoryRecorder, sessionID, userInput string) {
+func (rt *Runtime) finishCancelledChat(recorder *eventlog.HistoryRecorder, sessionID, userInput string, manager appstate.MemoryManager) {
 	err := rt.chatLifecycle().Finish(context.Background(), appchat.FinishRequest{
-		SessionID:   sessionID,
-		TitleSource: userInput,
-		Status:      appchat.SessionStatusCancelled,
-		History:     recorder,
+		SessionID:      sessionID,
+		TitleSource:    userInput,
+		Status:         appchat.SessionStatusCancelled,
+		History:        recorder,
+		Memory:         manager,
+		MemoryMessages: eventlog.ConvertMemoryMessages(recorder),
 	})
 	appchat.LogLifecycleError("http", sessionID, err)
 }
 
-func (rt *Runtime) finishErrorChat(recorder *eventlog.HistoryRecorder, sessionID, userInput string, err error) {
+func (rt *Runtime) finishErrorChat(recorder *eventlog.HistoryRecorder, sessionID, userInput string, runErr error, manager appstate.MemoryManager) {
 	lifecycleErr := rt.chatLifecycle().Finish(context.Background(), appchat.FinishRequest{
 		SessionID:       sessionID,
 		TitleSource:     userInput,
 		Status:          appchat.SessionStatusError,
 		History:         recorder,
 		FinalizeHistory: true,
-		Error:           err,
+		Error:           runErr,
+		Memory:          manager,
+		MemoryMessages:  eventlog.ConvertMemoryMessages(recorder),
 	})
 	appchat.LogLifecycleError("http", sessionID, lifecycleErr)
 }

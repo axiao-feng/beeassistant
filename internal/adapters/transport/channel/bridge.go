@@ -57,7 +57,7 @@ const (
 // Bridge 连接通道消息与智能体执行引擎
 type Bridge struct {
 	manager    *Manager
-	mode       string // 运行模式: team, deep, roundtable, agent
+	mode       string // 运行模式: generalist(默认), team, deep, roundtable, agent
 	agentID    string
 	state      *appstate.State
 	historyDir string
@@ -109,7 +109,7 @@ func NewBridgeWithState(manager *Manager, mode string, state *appstate.State) *B
 // NewBridgeWithOptions 创建带显式依赖的消息桥接器。
 func NewBridgeWithOptions(manager *Manager, mode string, options BridgeOptions) *Bridge {
 	if mode == "" {
-		mode = "team"
+		mode = "generalist"
 	}
 	historyDir := options.HistoryDir
 	if historyDir == "" {

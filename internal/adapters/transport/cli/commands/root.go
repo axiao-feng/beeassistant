@@ -42,8 +42,8 @@ func Root() *ucli.Command {
 			&ucli.StringFlag{
 				Name:    "mode",
 				Aliases: []string{"m"},
-				Value:   "team",
-				Usage:   "工作模式: team|deep|group",
+				Value:   "generalist",
+				Usage:   "工作模式: generalist|team|deep|group",
 			},
 			&ucli.BoolFlag{
 				Name:    "temporary",

@@ -55,9 +55,10 @@ func ExtractAgentMention(input string) (agentName string, query string) {
 type WorkMode string
 
 const (
-	ModeTeam  WorkMode = "team"
-	ModeDeep  WorkMode = "deep"
-	ModeGroup WorkMode = "group"
+	ModeGeneralist WorkMode = "generalist"
+	ModeTeam       WorkMode = "team"
+	ModeDeep       WorkMode = "deep"
+	ModeGroup      WorkMode = "group"
 )
 
 // String 返回模式字符串
@@ -68,6 +69,8 @@ func (m WorkMode) String() string {
 // GetPromptPrefix 获取提示符前缀
 func (m WorkMode) GetPromptPrefix() string {
 	switch m {
+	case ModeGeneralist:
+		return "个人助手模式> "
 	case ModeTeam:
 		return "团队模式> "
 	case ModeDeep:
@@ -89,6 +92,6 @@ func ParseWorkMode(mode string) WorkMode {
 	case "group":
 		return ModeGroup
 	default:
-		return ModeTeam
+		return ModeGeneralist
 	}
 }

@@ -249,8 +249,10 @@ func (m *sessionModeSwitcher) SwitchMode() (string, error) {
 			newMode = ModeGroup
 		case ModeGroup:
 			newMode = ModeTeam
-		default:
+		case ModeGeneralist:
 			newMode = ModeTeam
+		default:
+			newMode = ModeGeneralist
 		}
 	}
 

@@ -27,8 +27,9 @@ const (
 )
 
 type pendingExtraction struct {
-	sessionID string
-	messages  []Message
+	sessionID      string
+	messages       []Message
+	behavioralOnly bool
 }
 
 // Manager 记忆管理器
@@ -99,6 +100,7 @@ func NewManager(workspaceDir string, llmClient LLMClient, cfg *Config) *Manager 
 		stopDone:         make(chan struct{}),
 	}
 	m.load()
+	m.loadProgress()
 	m.rebuildIndex()
 	return m
 }
@@ -106,6 +108,10 @@ func NewManager(workspaceDir string, llmClient LLMClient, cfg *Config) *Manager 
 // ExtractAndStore 提取记忆并存储
 // 内部根据新增消息数量、内容长度和冷却时间智能判断是否触发 LLM 提取
 func (m *Manager) ExtractAndStore(ctx context.Context, messages []Message, sessionID string) {
+	m.extractAndStore(ctx, messages, sessionID, false)
+}
+
+func (m *Manager) extractAndStore(ctx context.Context, messages []Message, sessionID string, behavioralOnly bool) {
 	m.mu.RLock()
 	offset := m.extractedOffsets[sessionID]
 	lastTime := m.lastExtractTime[sessionID]
@@ -127,16 +133,25 @@ func (m *Manager) ExtractAndStore(ctx context.Context, messages []Message, sessi
 		log.Warnf("[memory] warn: extract failed: %v", err)
 		return
 	}
-
-	m.mu.Lock()
-	m.setSessionProgressLocked(sessionID, len(messages), time.Now())
-	m.mu.Unlock()
-
-	if len(entries) == 0 {
-		return
+	if behavioralOnly {
+		filtered := entries[:0]
+		for _, entry := range entries {
+			if isBehavioralMemory(entry.Type) {
+				filtered = append(filtered, entry)
+			}
+		}
+		entries = filtered
 	}
 
 	m.mu.Lock()
+	m.setSessionProgressLocked(sessionID, len(messages), time.Now())
+	if len(entries) == 0 {
+		if err := m.saveProgressLocked(); err != nil {
+			log.Warnf("[memory] warn: save extraction progress failed: %v", err)
+		}
+		m.mu.Unlock()
+		return
+	}
 	defer m.mu.Unlock()
 
 	added, updated := 0, 0
@@ -172,10 +187,23 @@ func (m *Manager) ExtractAndStore(ctx context.Context, messages []Message, sessi
 
 // ExtractAndStoreAsync 原子登记并异步执行一次记忆提取。
 func (m *Manager) ExtractAndStoreAsync(messages []Message, sessionID string) bool {
+	return m.enqueueExtraction(messages, sessionID, false)
+}
+
+// ExtractBehavioralAndStoreAsync 仅保留偏好和反馈类记忆，供中断或报错会话使用。
+func (m *Manager) ExtractBehavioralAndStoreAsync(messages []Message, sessionID string) bool {
+	return m.enqueueExtraction(messages, sessionID, true)
+}
+
+func (m *Manager) enqueueExtraction(messages []Message, sessionID string, behavioralOnly bool) bool {
 	if len(messages) == 0 || sessionID == "" {
 		return false
 	}
-	request := pendingExtraction{sessionID: sessionID, messages: append([]Message(nil), messages...)}
+	request := pendingExtraction{
+		sessionID:      sessionID,
+		messages:       append([]Message(nil), messages...),
+		behavioralOnly: behavioralOnly,
+	}
 
 	m.taskMu.Lock()
 	if m.stopping || m.paused {
@@ -211,7 +239,7 @@ func (m *Manager) runExtraction(request pendingExtraction) {
 	defer m.finishExtraction(request.sessionID)
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
-	m.ExtractAndStore(ctx, request.messages, request.sessionID)
+	m.extractAndStore(ctx, request.messages, request.sessionID, request.behavioralOnly)
 }
 
 // Search 检索记忆，使用 BM25 bigram 分词进行语义匹配
@@ -380,6 +408,8 @@ func (m *Manager) FlushExtract(ctx context.Context, messages []Message, sessionI
 		if err := m.save(); err != nil {
 			log.Warnf("[memory] warn: flush save failed: %v", err)
 		}
+	} else if err := m.saveProgressLocked(); err != nil {
+		log.Warnf("[memory] warn: save extraction progress failed: %v", err)
 	}
 	m.mu.Unlock()
 }
@@ -730,5 +760,8 @@ func (m *Manager) load() {
 // save 保存到 Markdown 文件
 func (m *Manager) save() error {
 	m.dirty = false
-	return saveAllMarkdown(m.storeDir, m.entries)
+	if err := saveAllMarkdown(m.storeDir, m.entries); err != nil {
+		return err
+	}
+	return m.saveProgressLocked()
 }

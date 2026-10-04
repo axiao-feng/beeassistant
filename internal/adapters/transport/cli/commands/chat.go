@@ -150,6 +150,8 @@ func chatAction(ctx context.Context, cmd *ucli.Command) error {
 // createModeRunner 根据工作模式创建对应的 Runner
 func createModeRunner(ctx context.Context, mode cliruntime.WorkMode) (runtimeport.Runner, error) {
 	switch mode {
+	case cliruntime.ModeGeneralist:
+		return appagent.Resolve(ctx, appagent.ModeGeneralist, "")
 	case cliruntime.ModeTeam:
 		return appagent.CreateTeamRunner(ctx)
 	case cliruntime.ModeDeep:

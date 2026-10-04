@@ -8,7 +8,8 @@ import type { ChatAttachmentDraft } from "@/types/chat";
 import type { FileEntry } from "@/types/files";
 
 const modeOptions = [
-  { value: "team", label: "团队" },
+	{ value: "generalist", label: "个人助手" },
+	{ value: "team", label: "团队" },
   { value: "deep", label: "深度" },
   { value: "roundtable", label: "圆桌" },
 ] as const;

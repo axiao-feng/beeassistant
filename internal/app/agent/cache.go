@@ -9,6 +9,7 @@ import (
 )
 
 const (
+	ModeGeneralist = "generalist"
 	ModeTeam       = "team"
 	ModeRoundtable = "roundtable"
 	ModeDeep       = "deep"
@@ -92,7 +93,7 @@ func resolveFactory(ctx context.Context, mode, agentName string, fallbackToTeam 
 	}
 
 	if mode == "" {
-		mode = ModeTeam
+		mode = ModeGeneralist
 	}
 
 	switch mode {
@@ -107,6 +108,10 @@ func resolveFactory(ctx context.Context, mode, agentName string, fallbackToTeam 
 	case ModeTeam:
 		return mode, func() (runtimeport.Runner, error) {
 			return CreateTeamRunner(ctx)
+		}, nil
+	case ModeGeneralist:
+		return mode, func() (runtimeport.Runner, error) {
+			return createAgentRunnerByName(ctx, mode)
 		}, nil
 	default:
 		if fallbackToTeam {

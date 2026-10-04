@@ -161,7 +161,7 @@ type ChannelQQ struct {
 	AppID     string `toml:"app_id" json:"app_id"`
 	AppSecret string `toml:"app_secret" json:"app_secret"`
 	Sandbox   bool   `toml:"sandbox" json:"sandbox"`
-	Mode      string `toml:"mode" json:"mode"` // 运行模式: team(默认), deep, roundtable, agent
+	Mode      string `toml:"mode" json:"mode"` // 运行模式: generalist(默认), team, deep, roundtable, agent
 	AgentID   string `toml:"agent_id,omitempty" json:"agent_id,omitempty"`
 }
 
@@ -170,7 +170,7 @@ type ChannelDiscord struct {
 	Enabled   bool   `toml:"enabled" json:"enabled"`
 	Token     string `toml:"token" json:"token"`
 	AllowFrom string `toml:"allow_from" json:"allow_from"` // 允许的用户 ID，多个用逗号分隔（空则允许所有人）
-	Mode      string `toml:"mode" json:"mode"`             // 运行模式: team(默认), deep, roundtable, agent
+	Mode      string `toml:"mode" json:"mode"`             // 运行模式: generalist(默认), team, deep, roundtable, agent
 	AgentID   string `toml:"agent_id,omitempty" json:"agent_id,omitempty"`
 }
 
@@ -181,7 +181,7 @@ type ChannelWeixin struct {
 	CredPath  string `toml:"cred_path" json:"cred_path"`   // 凭证存储路径（可选）
 	LogLevel  string `toml:"log_level" json:"log_level"`   // 日志级别: debug, info, warn, error, silent
 	AllowFrom string `toml:"allow_from" json:"allow_from"` // 允许的用户 ID，多个用逗号分隔（空则允许所有人）
-	Mode      string `toml:"mode" json:"mode"`             // 运行模式: team(默认), deep, roundtable, agent
+	Mode      string `toml:"mode" json:"mode"`             // 运行模式: generalist(默认), team, deep, roundtable, agent
 	AgentID   string `toml:"agent_id,omitempty" json:"agent_id,omitempty"`
 }
 
@@ -966,13 +966,13 @@ func GenerateExample() error {
 				AppID:     "your_app_id",
 				AppSecret: "your_app_secret",
 				Sandbox:   true,
-				Mode:      "team",
+				Mode:      "generalist",
 				AgentID:   "",
 			},
 			Discord: ChannelDiscord{
 				Enabled: false,
 				Token:   "your_discord_bot_token",
-				Mode:    "team",
+				Mode:    "generalist",
 				AgentID: "",
 			},
 			Weixin: ChannelWeixin{
@@ -981,7 +981,7 @@ func GenerateExample() error {
 				CredPath:  "channels/weixin/credentials.json",
 				LogLevel:  "info",
 				AllowFrom: "",
-				Mode:      "team",
+				Mode:      "generalist",
 				AgentID:   "",
 			},
 		},

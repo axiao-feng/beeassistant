@@ -39,6 +39,51 @@ func TestManagerFlushExtractPersistsAndLoadsMarkdown(t *testing.T) {
 	}
 }
 
+func TestManagerPersistsExtractionProgressWithoutConversationContent(t *testing.T) {
+	workspace := t.TempDir()
+	llm := &fakeLLMClient{response: `[]`}
+	messages := asyncExtractionMessages()
+	manager := NewManager(workspace, llm, nil)
+
+	manager.ExtractAndStore(context.Background(), messages, "session-1")
+	if llm.calls != 1 {
+		t.Fatalf("initial llm calls = %d, want 1", llm.calls)
+	}
+	progressPath := filepath.Join(workspace, "memory", extractionProgressFile)
+	data, err := os.ReadFile(progressPath)
+	if err != nil {
+		t.Fatalf("read extraction progress: %v", err)
+	}
+	if strings.Contains(string(data), "用户偏好") {
+		t.Fatalf("progress file must not contain conversation content: %q", data)
+	}
+
+	reloadedLLM := &fakeLLMClient{response: `[]`}
+	reloaded := NewManager(workspace, reloadedLLM, nil)
+	reloaded.ExtractAndStore(context.Background(), messages, "session-1")
+	if reloadedLLM.calls != 0 {
+		t.Fatalf("reloaded llm calls = %d, want 0 after restoring progress", reloadedLLM.calls)
+	}
+}
+
+func TestManagerBehavioralExtractionDropsNonBehavioralEntries(t *testing.T) {
+	llm := &fakeLLMClient{response: `[
+		{"type":"fact","summary":"用户是 Go 开发者","detail":"熟悉 Go","tags":["Go"]},
+		{"type":"feedback","summary":"不要反复确认","detail":"能安全推进时直接执行","tags":["工作方式"]}
+	]`}
+	manager := NewManager(t.TempDir(), llm, nil)
+	if !manager.ExtractBehavioralAndStoreAsync(asyncExtractionMessages(), "session-1") {
+		t.Fatal("behavioral extraction should be accepted")
+	}
+	if err := manager.Wait(context.Background()); err != nil {
+		t.Fatalf("wait for behavioral extraction: %v", err)
+	}
+	entries := manager.List()
+	if len(entries) != 1 || entries[0].Type != Feedback {
+		t.Fatalf("entries = %#v, want only feedback memory", entries)
+	}
+}
+
 func TestManagerFlushExtractSkipsShortContent(t *testing.T) {
 	llm := &fakeLLMClient{response: `[]`}
 	manager := NewManager(t.TempDir(), llm, nil)

@@ -13,7 +13,7 @@ var allCommands = []CommandInfo{
 	{Name: "help", Desc: "显示帮助信息", Category: "基础"},
 	{Name: "quit", Desc: "退出程序", Category: "基础"},
 	{Name: "list_agents", Desc: "列出所有可用的智能体", Category: "基础"},
-	{Name: "switch_work_mode", Desc: "切换工作模式", Usage: "[team|deep|group]", Category: "基础"},
+	{Name: "switch_work_mode", Desc: "切换工作模式", Usage: "[generalist|team|deep|group]", Category: "基础"},
 
 	{Name: "list_chat_history", Desc: "列出所有聊天历史会话", Category: "会话"},
 	{Name: "load_chat_history", Desc: "选择并加载聊天历史会话", Usage: "[SESSION_ID]", Category: "会话"},

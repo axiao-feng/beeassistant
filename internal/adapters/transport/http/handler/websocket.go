@@ -296,7 +296,7 @@ func (rt *Runtime) handleChatMessage(sm *sessionManager, wsMsg WSMessage, writeJ
 	sessionID := wsMsg.SessionID
 	mode := wsMsg.Mode
 	if mode == "" {
-		mode = "team"
+		mode = "generalist"
 	}
 	if wsMsg.Message == "" && len(wsMsg.Contents) == 0 {
 		_ = writeJSON(errorEventPayload(sessionID, "message or contents is required"))
@@ -410,13 +410,13 @@ func (rt *Runtime) handleChatMessage(sm *sessionManager, wsMsg WSMessage, writeJ
 					stream.SetStatus("cancelled")
 					stream.Publish(cancelledEventPayload(sessionID, currentRunID, "任务已取消"))
 				}
-				rt.finishCancelledChat(recorder, sessionID, currentDisplayText)
+				rt.finishCancelledChat(recorder, sessionID, currentDisplayText, manager)
 				return
 			}
 			log.Printf("failed to run task: session=%s, err=%v", sessionID, runErr)
 			stream.SetStatus("error")
 			stream.Publish(errorEventPayload(sessionID, runErr.Error()))
-			rt.finishErrorChat(recorder, sessionID, currentDisplayText, runErr)
+			rt.finishErrorChat(recorder, sessionID, currentDisplayText, runErr, manager)
 			return
 		}
 
@@ -435,7 +435,7 @@ func (rt *Runtime) handleChatMessage(sm *sessionManager, wsMsg WSMessage, writeJ
 
 		if stream.Status() != "completed" {
 			if stream.Status() == "cancelled" {
-				rt.finishCancelledChat(recorder, sessionID, currentDisplayText)
+				rt.finishCancelledChat(recorder, sessionID, currentDisplayText, manager)
 			}
 			return
 		}

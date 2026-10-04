@@ -52,7 +52,7 @@ func (rt *Runtime) ChatHandlerWithState(state *appstate.State) gin.HandlerFunc {
 		}
 		mode := req.Mode
 		if mode == "" {
-			mode = "team"
+			mode = "generalist"
 		}
 
 		ctx := appstate.WithState(c.Request.Context(), state)
@@ -101,7 +101,7 @@ func (rt *Runtime) handleSyncChat(c *gin.Context, ctx context.Context, r runtime
 		OnFinish: func(ctx context.Context, _ *runtimeport.RunResult, err error) {
 			if err != nil {
 				log.Printf("error processing event: %v", err)
-				rt.finishErrorChat(recorder, sessionID, userDisplayText, err)
+				rt.finishErrorChat(recorder, sessionID, userDisplayText, err, manager)
 				return
 			}
 			rt.finishChat(recorder, sessionID, userDisplayText, manager)

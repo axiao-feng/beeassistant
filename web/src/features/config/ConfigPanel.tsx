@@ -3021,7 +3021,7 @@ function ModelSelect({
 }
 
 function ModeField({ value, onChange }: { value?: string; onChange: (value: string) => void }) {
-  return <SelectField label="运行模式" value={value} options={["team", "deep", "roundtable", "agent"]} onChange={onChange} />;
+  return <SelectField label="运行模式" value={value} options={["generalist", "team", "deep", "roundtable", "agent"]} onChange={onChange} />;
 }
 
 function ToggleField({ label, checked, onChange, disabled }: { label: string; checked: boolean; onChange: (value: boolean) => void; disabled?: boolean }) {

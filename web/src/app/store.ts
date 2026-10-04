@@ -16,7 +16,7 @@ const initialChatState: ChatState = {
   viewSessionID: "",
   runningTasks: {},
   currentAgent: "",
-  mode: "team",
+	mode: "generalist",
   messages: [],
   events: [],
   seenEventKeys: {},
@@ -102,7 +102,7 @@ const chatSlice = createSlice({
       const detail = action.payload;
       state.activeSessionID = detail.session_id;
       state.viewSessionID = detail.session_id;
-      state.mode = detail.mode || "team";
+	state.mode = detail.mode || "generalist";
       state.currentAgent = detail.current_agent || "";
       state.messages = [];
       state.events = [];

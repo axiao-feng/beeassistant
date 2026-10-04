@@ -12,6 +12,18 @@ export interface SessionSummary {
   current_agent?: string;
 }
 
+export interface SessionSearchMatch {
+  type: string;
+  at?: string;
+  snippet: string;
+}
+
+export interface SessionSearchResult {
+  session_id: string;
+  title: string;
+  matches: SessionSearchMatch[];
+}
+
 export interface SessionDetail {
   session_id: string;
   title?: string;

@@ -26,6 +26,7 @@ const (
 	chatBodyLimit     int64 = 32 << 20
 	chunkUploadLimit  int64 = 65 << 20
 	fileUploadLimit   int64 = 101 << 20
+	backupUploadLimit int64 = 256 << 20
 	absoluteBodyLimit int64 = 128 << 20
 )
 
@@ -54,6 +55,7 @@ func registerAPIRoutesWithRuntime(r *gin.Engine, _ bool, state *appstate.State, 
 	chatBody := middleware.MaxBodySize(chatBodyLimit)
 	chunkUploadBody := middleware.MaxBodySize(chunkUploadLimit)
 	fileUploadBody := middleware.MaxBodySize(fileUploadLimit)
+	backupUploadBody := middleware.MaxBodySize(backupUploadLimit)
 
 	r.GET("/health", handler.HealthHandler())
 	r.GET("/live", handler.HealthHandler())
@@ -129,6 +131,13 @@ func registerAPIRoutesWithRuntime(r *gin.Engine, _ bool, state *appstate.State, 
 			files.GET("/serve/*filepath", handler.ServeFileHandler())
 		}
 
+		// 本地数据备份 API
+		backup := apiV1.Group("/backup")
+		{
+			backup.GET("/export", handler.ExportBackupHandler(handler.DefaultBackupRoot()))
+			backup.POST("/restore", backupUploadBody, handler.RestoreBackupHandler(handler.DefaultBackupRoot()))
+		}
+
 		// 个人待办清单 API
 		todos := apiV1.Group("/todos")
 		{
@@ -176,6 +185,7 @@ func registerAPIRoutesWithRuntime(r *gin.Engine, _ bool, state *appstate.State, 
 		sessions := apiV1.Group("/sessions")
 		{
 			sessions.GET("", runtime.ListSessionsHandler())
+			sessions.GET("/search", runtime.SearchSessionsHandler())
 			sessions.POST("", smallJSONBody, runtime.CreateSessionHandler())
 			sessions.GET("/:sessionID", runtime.GetSessionHandler())
 			sessions.PATCH("/:sessionID", smallJSONBody, runtime.UpdateSessionHandler())

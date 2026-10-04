@@ -1,8 +1,13 @@
-import type { SessionDetail, SessionSummary } from "@/types/chat";
+import type { SessionDetail, SessionSearchResult, SessionSummary } from "@/types/chat";
 import { del, get, post } from "./client";
 
 export function listSessions() {
   return get<{ sessions: SessionSummary[] }>("/api/fkteams/sessions");
+}
+
+export function searchSessions(query: string, signal?: AbortSignal) {
+  const params = new URLSearchParams({ q: query, limit: "30" });
+  return get<{ results: SessionSearchResult[]; total: number; query: string }>(`/api/fkteams/sessions/search?${params.toString()}`, { signal });
 }
 
 export function createSession(title = "") {

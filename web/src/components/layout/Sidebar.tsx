@@ -17,7 +17,7 @@ import {
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import type { LucideIcon } from "lucide-react";
-import type { RefObject } from "react";
+import type { ReactNode, RefObject } from "react";
 import { appActions, chatActions, sessionsActions, type AppPanel } from "@/app/store";
 import { useAppDispatch, useAppSelector } from "@/app/hooks";
 import { Button } from "@/components/ui/button";
@@ -25,7 +25,8 @@ import { Input } from "@/components/ui/input";
 import { shortID, formatTime } from "@/lib/format";
 import { cn } from "@/lib/cn";
 import { chatPath, panelPath, pushAppPath } from "@/lib/navigation";
-import { deleteSession, favoriteSession, renameSession } from "@/api/sessions";
+import { deleteSession, favoriteSession, renameSession, searchSessions } from "@/api/sessions";
+import type { SessionSearchResult, SessionSummary } from "@/types/chat";
 import { SessionShareDialog } from "./SessionShareDialog";
 
 const panels: Array<{ key: AppPanel; label: string; icon: LucideIcon }> = [
@@ -60,6 +61,8 @@ export function Sidebar() {
   const sessionMenuRef = useRef<HTMLDivElement | null>(null);
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [contentResults, setContentResults] = useState<SessionSearchResult[]>([]);
+  const [contentSearching, setContentSearching] = useState(false);
   const sidebarOpen = useAppSelector((state) => state.app.sidebarOpen);
   const activePanel = useAppSelector((state) => state.app.activePanel);
   const sessions = useAppSelector((state) => state.sessions.items);
@@ -73,6 +76,34 @@ export function Sidebar() {
   });
   const groups = groupSessions(sortedSessions);
   const openMenuSession = sortedSessions.find((session) => session.session_id === openMenuID);
+
+  useEffect(() => {
+    if (!searchOpen) {
+      setContentResults([]);
+      setContentSearching(false);
+      return;
+    }
+    const query = searchQuery.trim();
+    if (query.length < 2) {
+      setContentResults([]);
+      setContentSearching(false);
+      return;
+    }
+    const controller = new AbortController();
+    setContentSearching(true);
+    const timer = window.setTimeout(() => {
+      void searchSessions(query, controller.signal)
+        .then((response) => setContentResults(response.results || []))
+        .catch((error) => {
+          if (!(error instanceof Error && error.name === "AbortError")) setContentResults([]);
+        })
+        .finally(() => setContentSearching(false));
+    }, 220);
+    return () => {
+      window.clearTimeout(timer);
+      controller.abort();
+    };
+  }, [searchOpen, searchQuery]);
 
   useEffect(() => {
     if (!openMenuID) return;
@@ -333,6 +364,8 @@ export function Sidebar() {
           activeSessionID={activeSessionID}
           query={searchQuery}
           sessions={searchResults}
+          contentResults={contentResults}
+          contentSearching={contentSearching}
           onQueryChange={setSearchQuery}
           onClose={() => setSearchOpen(false)}
           onSelect={(sessionID) => {
@@ -509,13 +542,17 @@ function SessionSearchDialog({
   activeSessionID,
   query,
   sessions,
+  contentResults,
+  contentSearching,
   onQueryChange,
   onClose,
   onSelect,
 }: {
   activeSessionID: string;
   query: string;
-  sessions: Array<{ session_id: string; title?: string; mod_time?: string; updated_at?: string }>;
+  sessions: SessionSummary[];
+  contentResults: SessionSearchResult[];
+  contentSearching: boolean;
   onQueryChange: (value: string) => void;
   onClose: () => void;
   onSelect: (sessionID: string) => void;
@@ -545,29 +582,58 @@ function SessionSearchDialog({
           </button>
         </div>
         <div className="min-h-0 flex-1 overflow-auto p-3">
-          {sessions.length === 0 ? (
-            <div className="px-4 py-10 text-sm text-muted-foreground">没有匹配的会话</div>
-          ) : (
-            <div className="space-y-2">
+          {sessions.length > 0 ? (
+            <SearchResultSection title="标题匹配">
               {sessions.map((session) => (
+                <SessionSearchButton key={session.session_id} active={activeSessionID === session.session_id} label={session.title || shortID(session.session_id)} meta={relativeSessionTime(session)} onClick={() => onSelect(session.session_id)} />
+              ))}
+            </SearchResultSection>
+          ) : null}
+          {contentSearching ? <div className="px-4 py-4 text-sm text-muted-foreground">正在搜索聊天内容...</div> : null}
+          {contentResults.length > 0 ? (
+            <SearchResultSection title="聊天内容匹配">
+              {contentResults.map((result) => (
                 <button
-                  key={session.session_id}
-                  className={cn(
-                    "flex min-h-12 w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-base transition-colors hover:bg-muted/60 sm:px-4",
-                    activeSessionID === session.session_id && "bg-muted",
-                  )}
-                  onClick={() => onSelect(session.session_id)}
+                  key={result.session_id}
+                  className={cn("w-full rounded-xl px-3 py-2.5 text-left transition-colors hover:bg-muted/60 sm:px-4", activeSessionID === result.session_id && "bg-muted")}
+                  onClick={() => onSelect(result.session_id)}
                 >
-                  <MessageSquare className="h-4 w-4 shrink-0 text-muted-foreground" />
-                  <span className="min-w-0 flex-1 truncate font-medium">{session.title || shortID(session.session_id)}</span>
-                  <span className="shrink-0 text-sm text-muted-foreground">{relativeSessionTime(session)}</span>
+                  <div className="flex items-center gap-3">
+                    <MessageSquare className="h-4 w-4 shrink-0 text-muted-foreground" />
+                    <span className="min-w-0 flex-1 truncate text-base font-medium">{result.title || shortID(result.session_id)}</span>
+                    <span className="shrink-0 text-xs text-muted-foreground">{result.matches.length} 处</span>
+                  </div>
+                  <div className="mt-1 line-clamp-2 pl-7 text-sm leading-5 text-muted-foreground">{result.matches[0]?.snippet}</div>
                 </button>
               ))}
-            </div>
-          )}
+            </SearchResultSection>
+          ) : null}
+          {!contentSearching && sessions.length === 0 && contentResults.length === 0 ? <div className="px-4 py-10 text-sm text-muted-foreground">{query.trim().length < 2 ? "输入至少 2 个字符搜索标题或聊天内容" : "没有匹配的会话"}</div> : null}
         </div>
       </div>
     </div>
+  );
+}
+
+function SearchResultSection({ title, children }: { title: string; children: ReactNode }) {
+  return (
+    <section className="mb-4 last:mb-0">
+      <div className="px-2 pb-1 text-xs text-muted-foreground">{title}</div>
+      <div className="space-y-2">{children}</div>
+    </section>
+  );
+}
+
+function SessionSearchButton({ active, label, meta, onClick }: { active: boolean; label: string; meta: string; onClick: () => void }) {
+  return (
+    <button
+      className={cn("flex min-h-12 w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-base transition-colors hover:bg-muted/60 sm:px-4", active && "bg-muted")}
+      onClick={onClick}
+    >
+      <MessageSquare className="h-4 w-4 shrink-0 text-muted-foreground" />
+      <span className="min-w-0 flex-1 truncate font-medium">{label}</span>
+      <span className="shrink-0 text-sm text-muted-foreground">{meta}</span>
+    </button>
   );
 }
 

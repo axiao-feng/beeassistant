@@ -24,6 +24,7 @@ import {
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { generateAgentDrafts, generateJavaScriptDraft, rewriteText } from "@/api/ai";
+import { downloadBackup, restoreBackup } from "@/api/backup";
 import { testJavaScriptTool } from "@/api/javascript";
 import { clearMemories, deleteMemory, listMemories } from "@/api/memory";
 import { getPersonalProfile, savePersonalProfile } from "@/api/profile";
@@ -932,6 +933,10 @@ function MemoryTab({ draft, updateDraft }: EditorProps) {
   const [keyword, setKeyword] = useState("");
   const [loading, setLoading] = useState(false);
   const [savingProfile, setSavingProfile] = useState(false);
+  const [backupBusy, setBackupBusy] = useState(false);
+  const [restoreFile, setRestoreFile] = useState<File | null>(null);
+  const [restoreOpen, setRestoreOpen] = useState(false);
+  const backupInputRef = useRef<HTMLInputElement | null>(null);
   const [clearOpen, setClearOpen] = useState(false);
   const [busySummary, setBusySummary] = useState("");
 
@@ -964,6 +969,33 @@ function MemoryTab({ draft, updateDraft }: EditorProps) {
       dispatch(appActions.showToast(error instanceof Error ? error.message : "保存个人资料失败"));
     } finally {
       setSavingProfile(false);
+    }
+  }
+
+  async function exportBackup() {
+    setBackupBusy(true);
+    try {
+      await downloadBackup();
+      dispatch(appActions.showToast("备份已导出"));
+    } catch (error) {
+      dispatch(appActions.showToast(error instanceof Error ? error.message : "导出备份失败"));
+    } finally {
+      setBackupBusy(false);
+    }
+  }
+
+  async function importBackup() {
+    if (!restoreFile) return;
+    setBackupBusy(true);
+    try {
+      const result = await restoreBackup(restoreFile);
+      setRestoreOpen(false);
+      setRestoreFile(null);
+      dispatch(appActions.showToast(`已恢复 ${result.restored} 个文件，请重启蜜蜂助手`));
+    } catch (error) {
+      dispatch(appActions.showToast(error instanceof Error ? error.message : "恢复备份失败"));
+    } finally {
+      setBackupBusy(false);
     }
   }
 
@@ -1025,6 +1057,34 @@ function MemoryTab({ draft, updateDraft }: EditorProps) {
             <Field label="补充说明">
               <Textarea className="min-h-28" value={profile.notes} placeholder="可以填写你的偏好、工作背景或希望助手注意的事项" onChange={(event) => setProfile((current) => ({ ...current, notes: event.target.value }))} />
             </Field>
+          </div>
+        </PanelBody>
+      </Panel>
+      <Panel>
+        <PanelHeader>
+          <SectionTitle icon={Save} title="本地数据备份" description="导出或恢复个人资料、待办、记忆、会话和工作区数据。" />
+        </PanelHeader>
+        <PanelBody className="space-y-3">
+          <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm leading-6 text-muted-foreground">
+            备份可能包含模型配置、会话内容和本地凭据，请妥善保管。恢复后需要重启蜜蜂助手才能完全生效。
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Button variant="outline" onClick={() => void exportBackup()} disabled={backupBusy}>
+              <Save className="h-4 w-4" />
+              {backupBusy ? "处理中" : "导出备份"}
+            </Button>
+            <input ref={backupInputRef} type="file" accept=".zip,application/zip" className="hidden" onChange={(event) => {
+              const file = event.target.files?.[0];
+              if (file) {
+                setRestoreFile(file);
+                setRestoreOpen(true);
+              }
+              event.currentTarget.value = "";
+            }} />
+            <Button variant="outline" onClick={() => backupInputRef.current?.click()} disabled={backupBusy}>
+              <RefreshCcw className="h-4 w-4" />
+              选择备份恢复
+            </Button>
           </div>
         </PanelBody>
       </Panel>
@@ -1101,6 +1161,16 @@ function MemoryTab({ draft, updateDraft }: EditorProps) {
         busy={busySummary === "__clear__"}
         onCancel={() => { if (!busySummary) setClearOpen(false); }}
         onConfirm={() => void clearAll()}
+      />
+      <ConfirmDialog
+        open={restoreOpen}
+        title="恢复本地备份"
+        description={`将从「${restoreFile?.name || "备份文件"}」恢复个人数据。现有同名文件会被覆盖，是否继续？`}
+        confirmLabel="确认恢复"
+        destructive
+        busy={backupBusy}
+        onCancel={() => { if (!backupBusy) { setRestoreOpen(false); setRestoreFile(null); } }}
+        onConfirm={() => void importBackup()}
       />
     </div>
   );

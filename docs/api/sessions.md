@@ -46,6 +46,47 @@
 
 ---
 
+## GET /api/fkteams/sessions/search
+
+按聊天正文搜索历史会话。标题匹配由 Web 侧栏同时完成，正文搜索会读取会话 transcript，并返回命中片段。
+
+**查询参数**：
+
+| 参数 | 类型 | 必填 | 说明 |
+| ---- | ---- | ---- | ---- |
+| `q` | string | 是 | 至少 2 个字符 |
+| `limit` | number | 否 | 返回会话数量，默认 30，最大 50 |
+
+**成功响应** (200)：
+
+```json
+{
+  "code": 0,
+  "message": "success",
+  "data": {
+    "query": "长期记忆",
+    "total": 1,
+    "results": [
+      {
+        "session_id": "550e8400-e29b-41d4-a716-446655440000",
+        "title": "个人助手设置",
+        "matches": [
+          {
+            "type": "user_message",
+            "at": "2026-10-04T12:00:00Z",
+            "snippet": "今天讨论了长期记忆设计。"
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+关键词少于 2 个字符时返回 400；读取单个损坏会话失败不会阻止其他会话继续搜索。
+
+---
+
 ## POST /api/fkteams/sessions
 
 创建新的会话（生成 metadata 目录）。

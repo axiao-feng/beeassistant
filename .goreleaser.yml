@@ -7,8 +7,8 @@ before:
     - go mod tidy
 
 builds:
-  - id: "fkteams" # 内部标识符
-    binary: "fkteams" # 决定了生成的文件名是 fkteams (Windows 下自动加 .exe)
+  - id: "beeteams" # 内部标识符
+    binary: "beeteams" # 决定了生成的文件名是 beeteams (Windows 下自动加 .exe)
     env:
       - CGO_ENABLED=0
     main: ./cmd/fkteams
@@ -29,7 +29,7 @@ builds:
 archives:
   - formats: ["zip"]
     name_template: >-
-      {{ .ProjectName }}_
+      beeteams_
       {{- .Version }}_
       {{- title .Os }}_
       {{- if eq .Arch "amd64" }}x86_64

@@ -23,7 +23,7 @@ COPY . .
 COPY --from=web-builder /src/web/dist ./web/dist
 RUN CGO_ENABLED=0 go build -trimpath \
     -ldflags "-s -w -X 'fkteams/internal/app/version.version=$(cat VERSION 2>/dev/null || echo dev)'" \
-    -o fkteams ./cmd/fkteams
+    -o beeteams ./cmd/fkteams
 
 # ---- 运行阶段 ----
 FROM alpine:3.21
@@ -33,7 +33,7 @@ RUN apk add --no-cache ca-certificates tzdata git
 WORKDIR /app
 
 # 从构建阶段复制二进制
-COPY --from=builder /build/fkteams .
+COPY --from=builder /build/beeteams .
 
 # 创建运行时目录
 RUN mkdir -p config workspace history/input_history history/chat_history \
@@ -41,5 +41,5 @@ RUN mkdir -p config workspace history/input_history history/chat_history \
 
 EXPOSE 23456
 
-ENTRYPOINT ["./fkteams"]
+ENTRYPOINT ["./beeteams"]
 CMD ["web", "--host", "0.0.0.0"]

@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
-# fkteams 安装脚本
-# 用法: curl -fsSL https://raw.githubusercontent.com/wsshow/feikong-teams/main/install.sh | bash
+# 蜜蜂助手安装脚本
+# 用法: curl -fsSL https://raw.githubusercontent.com/axiao-feng/beeassistant/main/install.sh | bash
 
 set -euo pipefail
 
-GITHUB_REPO="wsshow/feikong-teams"
-APP_NAME="fkteams"
-INSTALL_DIR="${FKTEAMS_INSTALL_DIR:-${HOME}/.fkteams/bin}"
+GITHUB_REPO="axiao-feng/beeassistant"
+APP_NAME="beeteams"
+INSTALL_DIR="${BEETEAMS_INSTALL_DIR:-${FKTEAMS_INSTALL_DIR:-${HOME}/.fkteams/bin}}"
 
 # ---- 颜色输出 ----
 tty_escape() { printf "\033[%sm" "$1"; }
@@ -177,7 +177,7 @@ add_to_path() {
     # 幂等写入：若已有该行则不重复添加
     if ! grep -qF "$dir" "$profile_file" 2>/dev/null; then
         {
-            printf '\n# fkteams\n'
+            printf '\n# beeteams\n'
             echo "$export_line"
         } >> "$profile_file"
         success "已将 ${dir} 添加到 PATH（${profile_file}）"
@@ -199,7 +199,7 @@ main() {
     # GoReleaser 打包时去掉了 v 前缀
     version="${tag#v}"
 
-    zip_name="feikong-teams_${version}_${os}_${arch}.zip"
+    zip_name="beeteams_${version}_${os}_${arch}.zip"
     download_url="https://github.com/${GITHUB_REPO}/releases/download/${tag}/${zip_name}"
 
     info "版本   : ${tag}"

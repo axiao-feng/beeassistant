@@ -1,4 +1,4 @@
-Name = fkteams
+Name = beeteams
 Version = 0.0.1
 BuildTime = $(shell date +'%Y-%m-%d %H:%M:%S')
 BUN ?= bun
@@ -8,14 +8,14 @@ WEB_DIR = web
 CURRENT_OS = $(shell go env GOOS)
 CURRENT_ARCH = $(shell go env GOARCH)
 
-LDFlags = -ldflags "-s -w -X '${Name}/internal/app/version.version=$(Version)' -X '${Name}/internal/app/version.buildTime=${BuildTime}'"
+LDFlags = -ldflags "-s -w -X 'fkteams/internal/app/version.version=$(Version)' -X 'fkteams/internal/app/version.buildTime=${BuildTime}'"
 
 # 默认全量编译的目标列表
 targets ?= darwin:arm64 windows:amd64 linux:amd64
 
 .DEFAULT_GOAL := native
 
-# 1. 原生系统编译：强制指定输出格式为 fkteams_os_arch
+# 1. 原生系统编译：强制指定输出格式为 beeteams_os_arch
 native:
 	@$(MAKE) build t="$(CURRENT_OS):$(CURRENT_ARCH)"
 

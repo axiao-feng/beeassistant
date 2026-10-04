@@ -1,16 +1,16 @@
-# fkteams Windows 安装脚本
-# 用法: powershell -c "irm https://raw.githubusercontent.com/wsshow/feikong-teams/main/install.ps1 | iex"
+# 蜜蜂助手 Windows 安装脚本
+# 用法: powershell -c "irm https://raw.githubusercontent.com/axiao-feng/beeassistant/main/install.ps1 | iex"
 
 param(
-    [string]$InstallDir = $(if ($env:FKTEAMS_INSTALL_DIR) { $env:FKTEAMS_INSTALL_DIR } else { "$env:USERPROFILE\.fkteams\bin" })
+    [string]$InstallDir = $(if ($env:BEETEAMS_INSTALL_DIR) { $env:BEETEAMS_INSTALL_DIR } elseif ($env:FKTEAMS_INSTALL_DIR) { $env:FKTEAMS_INSTALL_DIR } else { "$env:USERPROFILE\.fkteams\bin" })
 )
 
 $ErrorActionPreference = "Stop"
 # 隐藏 Invoke-WebRequest 的进度条（显著提升下载速度）
 $ProgressPreference = "SilentlyContinue"
 
-$GITHUB_REPO = "wsshow/feikong-teams"
-$APP_NAME    = "fkteams"
+$GITHUB_REPO = "axiao-feng/beeassistant"
+$APP_NAME    = "beeteams"
 
 function Write-Info  { param([string]$Msg) Write-Host "==> $Msg" -ForegroundColor Cyan }
 function Write-Ok    { param([string]$Msg) Write-Host "==> $Msg" -ForegroundColor Green }
@@ -44,7 +44,7 @@ function Get-Arch {
 function Get-LatestVersion {
     $apiUrl = "https://api.github.com/repos/$GITHUB_REPO/releases/latest"
     try {
-        $headers = @{ "Accept" = "application/vnd.github.v3+json"; "User-Agent" = "fkteams-installer" }
+        $headers = @{ "Accept" = "application/vnd.github.v3+json"; "User-Agent" = "beeteams-installer" }
         $proxyParams = Get-ProxyParams
         $release = Invoke-RestMethod -Uri $apiUrl -Headers $headers -UseBasicParsing @proxyParams
         return $release.tag_name
@@ -100,7 +100,7 @@ function Invoke-DownloadWithProgress {
             }
 
             $client  = [System.Net.Http.HttpClient]::new($handler)
-            $client.DefaultRequestHeaders.UserAgent.ParseAdd("fkteams-installer/1.0")
+            $client.DefaultRequestHeaders.UserAgent.ParseAdd("beeteams-installer/1.0")
             $client.Timeout = [System.TimeSpan]::FromMinutes(30)
 
             # 设置 Range 头以支持断点续传
@@ -230,7 +230,7 @@ $arch    = Get-Arch
 $tag     = Get-LatestVersion
 $version = $tag.TrimStart("v")   # GoReleaser 打包时去掉了 v 前缀
 
-$zipName     = "feikong-teams_${version}_Windows_${arch}.zip"
+$zipName     = "beeteams_${version}_Windows_${arch}.zip"
 $downloadUrl = "https://github.com/$GITHUB_REPO/releases/download/$tag/$zipName"
 
 Write-Info "版本   : $tag"

@@ -3,13 +3,13 @@
   <p>
     <a href="https://github.com/axiao-feng/beeassistant/releases"><img src="https://img.shields.io/github/v/release/axiao-feng/beeassistant" alt="Release"></a>
     <a href="./go.mod"><img src="https://img.shields.io/github/go-mod/go-version/axiao-feng/beeassistant" alt="Go Version"></a>
-    <a href="./LICENSE"><img src="https://img.shields.io/github/license/wsshow/feikong-teams" alt="License"></a>
+    <a href="./LICENSE"><img src="https://img.shields.io/github/license/axiao-feng/beeassistant" alt="License"></a>
   </p>
   <p><strong>你的个人综合 AI 助手</strong></p>
   <p>一个可本地运行的个人综合助手，优先直接处理日常问题，并在复杂任务确有必要时调用专业智能体协作。</p>
 </div>
 
-![fkteams Web 任务执行界面](./docs/images/fkteams_web_task.png)
+![蜜蜂助手 Web 任务执行界面](./docs/images/fkteams_web_task.png)
 
 ## 为什么选择蜜蜂助手
 
@@ -30,13 +30,13 @@
 Linux / macOS：
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/wsshow/feikong-teams/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/axiao-feng/beeassistant/main/install.sh | bash
 ```
 
 Windows PowerShell：
 
 ```powershell
-powershell -c "irm https://raw.githubusercontent.com/wsshow/feikong-teams/main/install.ps1 | iex"
+powershell -c "irm https://raw.githubusercontent.com/axiao-feng/beeassistant/main/install.ps1 | iex"
 ```
 
 也可以从 [GitHub Releases](https://github.com/axiao-feng/beeassistant/releases) 手动下载。自定义安装目录等说明见[部署指南](./docs/deployment.md#安装发行版)。
@@ -44,7 +44,7 @@ powershell -c "irm https://raw.githubusercontent.com/wsshow/feikong-teams/main/i
 ### 2. 配置模型
 
 ```bash
-fkteams login
+beeteams login
 ```
 
 登录向导支持常见 OpenAI 兼容模型服务和 GitHub Copilot。更多登录方式及手动配置方法见[配置指南](./docs/configuration.md)和[使用指南](./docs/usage.md#模型登录与管理)。
@@ -52,7 +52,7 @@ fkteams login
 ### 3. 启动 Web 界面
 
 ```bash
-fkteams web
+beeteams web
 ```
 
 打开 <http://localhost:23456>，即可开始使用个人综合助手。
@@ -63,9 +63,9 @@ fkteams web
 
 | 入口 | 启动方式 | 适用场景 |
 | --- | --- | --- |
-| Web UI | `fkteams web` | 日常使用、长任务跟踪和可视化管理 |
-| CLI / TUI | `fkteams` | 终端工作流、开发与运维 |
-| API 服务 | `fkteams serve` | 应用集成和自动化调用 |
+| Web UI | `beeteams web` | 日常使用、长任务跟踪和可视化管理 |
+| CLI / TUI | `beeteams` | 终端工作流、开发与运维 |
+| API 服务 | `beeteams serve` | 应用集成和自动化调用 |
 | 消息通道 | 配置后启动 Web 服务 | Discord、QQ、微信机器人 |
 
 CLI 也支持直接查询、管道输入、恢复会话和调用指定智能体。完整命令见[使用指南](./docs/usage.md)，接口定义见 [API 文档](./docs/api/README.md)。
@@ -110,4 +110,4 @@ make native
 
 ## 致谢
 
-fkteams 基于 [CloudWeGo Eino](https://github.com/cloudwego/eino)、[goja](https://github.com/dop251/goja)、[Bubble Tea](https://github.com/charmbracelet/bubbletea)、[Pterm](https://github.com/pterm/pterm) 和 [MCP Go](https://github.com/mark3labs/mcp-go) 等优秀开源项目构建。
+蜜蜂助手基于 [CloudWeGo Eino](https://github.com/cloudwego/eino)、[goja](https://github.com/dop251/goja)、[Bubble Tea](https://github.com/charmbracelet/bubbletea)、[Pterm](https://github.com/pterm/pterm) 和 [MCP Go](https://github.com/mark3labs/mcp-go) 等优秀开源项目构建。

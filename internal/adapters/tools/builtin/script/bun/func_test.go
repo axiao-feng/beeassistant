@@ -43,7 +43,18 @@ func writeFakeCommand(t *testing.T, dir, name, body string) string {
 
 func fakeBunScript() string {
 	if runtime.GOOS == "windows" {
-		return "@echo off\r\necho bun ok\r\n"
+		return "@echo off\r\n" +
+			"if not \"%BUN_TEST_LOG%\"==\"\" echo %*>>\"%BUN_TEST_LOG%\"\r\n" +
+			"if \"%1\"==\"--version\" (\r\n" +
+			"  echo 1.2.3\r\n" +
+			"  exit /b 0\r\n" +
+			")\r\n" +
+			"if \"%1\"==\"init\" (\r\n" +
+			"  > package.json echo {\"dependencies\":{},\"devDependencies\":{}}\r\n" +
+			"  echo bun init ok\r\n" +
+			"  exit /b 0\r\n" +
+			")\r\n" +
+			"echo bun ok\r\n"
 	}
 	return `#!/bin/sh
 echo "$@" >> "$BUN_TEST_LOG"

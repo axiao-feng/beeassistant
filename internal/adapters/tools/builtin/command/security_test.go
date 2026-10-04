@@ -2,6 +2,7 @@ package command
 
 import (
 	"context"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -65,8 +66,12 @@ func TestSmartExecuteRejectsDangerousCommandWithoutRunning(t *testing.T) {
 
 func TestSmartExecuteSafeCommand(t *testing.T) {
 	tools := NewCommandTools(t.TempDir(), WithApprovalMode(ApprovalModeReject))
+	command := "printf fkteams"
+	if runtime.GOOS == "windows" {
+		command = "[Console]::Write('fkteams')"
+	}
 	resp, err := tools.SmartExecute(context.Background(), &SmartExecuteRequest{
-		Command: "printf fkteams",
+		Command: command,
 		Reason:  "test safe execution",
 		Timeout: 5,
 	})

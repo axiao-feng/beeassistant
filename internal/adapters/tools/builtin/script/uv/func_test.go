@@ -22,10 +22,11 @@ func newTestUVTools(t *testing.T) *UVTools {
 		t.Fatalf("create work dir: %v", err)
 	}
 	return &UVTools{
-		envDir:   envDir,
-		workDir:  workDir,
-		venvPath: filepath.Join(envDir, ".venv"),
-		uvPath:   writeFakeCommand(t, root, "uv", fakeUVScript()),
+		envDir:     envDir,
+		workDir:    workDir,
+		venvPath:   filepath.Join(envDir, ".venv"),
+		uvPath:     writeFakeCommand(t, root, "uv", fakeUVScript()),
+		pythonPath: writeFakeCommand(t, root, "python", fakePythonScript()),
 	}
 }
 
@@ -44,7 +45,17 @@ func writeFakeCommand(t *testing.T, dir, name, body string) string {
 
 func fakeUVScript() string {
 	if runtime.GOOS == "windows" {
-		return "@echo off\r\necho []\r\n"
+		return "@echo off\r\n" +
+			"if not \"%UV_TEST_LOG%\"==\"\" echo %*>>\"%UV_TEST_LOG%\"\r\n" +
+			"if \"%1\"==\"--version\" (\r\n" +
+			"  echo uv 0.1.0\r\n" +
+			"  exit /b 0\r\n" +
+			")\r\n" +
+			"if \"%1\"==\"pip\" if \"%2\"==\"list\" (\r\n" +
+			"  echo [{\"name\":\"requests\",\"version\":\"2.32.0\"},{\"name\":\"pytest\",\"version\":\"8.0.0\"}]\r\n" +
+			"  exit /b 0\r\n" +
+			")\r\n" +
+			"echo uv ok\r\n"
 	}
 	return `#!/bin/sh
 echo "$@" >> "$UV_TEST_LOG"
@@ -60,9 +71,21 @@ echo "uv ok"
 `
 }
 
+func fakePythonScript() string {
+	if runtime.GOOS == "windows" {
+		return "@echo off\r\n" +
+			"if \"%1\"==\"--version\" echo Python 3.12.0\r\n" +
+			"if \"%1\"==\"-c\" echo python-ok\r\n"
+	}
+	return "#!/bin/sh\nif [ \"$1\" = \"--version\" ]; then echo \"Python 3.12.0\"; exit 0; fi\necho python-ok\n"
+}
+
 func createVenv(t *testing.T, ut *UVTools) {
 	t.Helper()
 
+	if err := os.MkdirAll(ut.venvPath, 0755); err != nil {
+		t.Fatalf("create venv dir: %v", err)
+	}
 	pythonPath := ut.getPythonPath()
 	if err := os.MkdirAll(filepath.Dir(pythonPath), 0755); err != nil {
 		t.Fatalf("create venv bin: %v", err)

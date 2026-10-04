@@ -27,6 +27,8 @@ type UVTools struct {
 	venvPath string
 	// uvPath 是 uv 命令的路径
 	uvPath string
+	// pythonPath 用于测试或嵌入式运行时覆盖解释器路径；生产环境为空时按平台推导。
+	pythonPath string
 }
 
 // NewUVTools 创建一个新的 uv 工具实例
@@ -145,6 +147,9 @@ func (ut *UVTools) InitEnv(ctx context.Context, req *InitEnvRequest) (*InitEnvRe
 
 // getPythonPath 获取虚拟环境中的 Python 解释器路径
 func (ut *UVTools) getPythonPath() string {
+	if ut.pythonPath != "" {
+		return ut.pythonPath
+	}
 	if runtime.GOOS == "windows" {
 		return filepath.Join(ut.venvPath, "Scripts", "python.exe")
 	}

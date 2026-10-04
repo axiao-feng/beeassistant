@@ -257,8 +257,17 @@ func TestSkillMutationsRejectInvalidPaths(t *testing.T) {
 	if err := SaveSkillFile("demo", "../secret.txt", "secret"); err == nil || !strings.Contains(err.Error(), "invalid path") {
 		t.Fatalf("SaveSkillFile traversal error = %v, want invalid path", err)
 	}
-	if err := CreateSkillFile("demo", "/secret.txt", "secret", false); err == nil || !strings.Contains(err.Error(), "invalid path") {
-		t.Fatalf("CreateSkillFile absolute error = %v, want invalid path", err)
+	for _, invalidPath := range []string{
+		"/secret.txt",
+		`\secret.txt`,
+		`C:\secret.txt`,
+		`C:/secret.txt`,
+		`\\server\share\secret.txt`,
+		`..\secret.txt`,
+	} {
+		if err := CreateSkillFile("demo", invalidPath, "secret", false); err == nil || !strings.Contains(err.Error(), "invalid path") {
+			t.Errorf("CreateSkillFile(%q) error = %v, want invalid path", invalidPath, err)
+		}
 	}
 	if err := DeleteSkillFile("demo", "SKILL.md"); err == nil || !strings.Contains(err.Error(), "cannot be deleted") {
 		t.Fatalf("DeleteSkillFile SKILL.md error = %v, want cannot be deleted", err)

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path"
 	"path/filepath"
 	"regexp"
 	"sort"
@@ -431,14 +432,20 @@ func resolveSkillPath(slug, subPath string, allowRoot bool) (string, string, err
 		return "", "", err
 	}
 	skillsDir := filepath.Join(appdata.SkillsDir(), slug)
-	cleanSub := filepath.Clean(filepath.ToSlash(strings.TrimSpace(subPath)))
+	// Normalize both slash styles before validation. filepath.Clean alone is not
+	// sufficient on Windows: /secret.txt can become \secret.txt and evade a
+	// slash-only absolute-path check.
+	normalizedSub := strings.ReplaceAll(strings.TrimSpace(subPath), `\`, "/")
+	cleanSub := path.Clean(normalizedSub)
 	if cleanSub == "." {
 		cleanSub = ""
 	}
 	if cleanSub == "" && !allowRoot {
 		return "", "", fmt.Errorf("path is required")
 	}
-	if strings.HasPrefix(cleanSub, "..") || strings.HasPrefix(cleanSub, "/") || filepath.IsAbs(cleanSub) {
+	if cleanSub == ".." || strings.HasPrefix(cleanSub, "../") ||
+		strings.HasPrefix(cleanSub, "/") || hasWindowsVolumePrefix(cleanSub) ||
+		filepath.IsAbs(filepath.FromSlash(cleanSub)) {
 		return "", "", fmt.Errorf("invalid path")
 	}
 
@@ -449,6 +456,12 @@ func resolveSkillPath(slug, subPath string, allowRoot bool) (string, string, err
 		return "", "", fmt.Errorf("invalid path")
 	}
 	return cleanTarget, cleanSub, nil
+}
+
+func hasWindowsVolumePrefix(value string) bool {
+	return len(value) >= 2 &&
+		((value[0] >= 'a' && value[0] <= 'z') || (value[0] >= 'A' && value[0] <= 'Z')) &&
+		value[1] == ':'
 }
 
 func defaultSkillContent(name, description string) string {

@@ -106,8 +106,11 @@ export function patch<T>(path: string, body?: unknown) {
   });
 }
 
-export function del<T>(path: string) {
-  return request<T>(path, { method: "DELETE" });
+export function del<T>(path: string, body?: unknown) {
+  return request<T>(path, {
+    method: "DELETE",
+    body: body === undefined ? undefined : JSON.stringify(body),
+  });
 }
 
 export function isAbortError(error: unknown) {

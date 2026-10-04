@@ -364,7 +364,7 @@ func (rt *Runtime) handleChatMessage(sm *sessionManager, wsMsg WSMessage, writeJ
 	recorder, releaseRecorder := rt.acquireRecorder(sessionID)
 	defer releaseRecorder()
 	manager := memoryFromState(state)
-	turnInput, userDisplayText := buildChatInput(recorder, wsMsg.Message, wsMsg.Contents, manager)
+	turnInput, userDisplayText := buildChatInput(recorder, wsMsg.Message, wsMsg.Contents, manager, rt.PersonalProfile)
 	currentRunID := newTurnRunID(sessionID)
 	currentTurnID := turnIDForRun(currentRunID)
 	stream.SetTurn(currentRunID, currentTurnID)
@@ -426,7 +426,7 @@ func (rt *Runtime) handleChatMessage(sm *sessionManager, wsMsg WSMessage, writeJ
 			publishQueueUpdated(stream, sessionID)
 			rt.persistQueueSnapshot(sessionID, stream)
 			currentDisplayText = queued.DisplayText
-			currentInput = buildQueuedChatInput(recorder, queued, manager)
+			currentInput = buildQueuedChatInput(recorder, queued, manager, rt.PersonalProfile)
 			currentRunID = queuedTurnRunID(sessionID, queued)
 			rt.updateSessionExecutionMetadata(sessionID, currentDisplayText, mode, wsMsg.AgentName)
 			publishQueuedExecutionStart(stream, sessionID, queued, currentRunID)

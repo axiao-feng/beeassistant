@@ -138,6 +138,13 @@ func registerAPIRoutesWithRuntime(r *gin.Engine, _ bool, state *appstate.State, 
 			todos.DELETE("/:id", controlBody, handler.DeletePersonalTodoHandler(runtime.PersonalTodos))
 		}
 
+		// 个人资料 API
+		profile := apiV1.Group("/profile")
+		{
+			profile.GET("", handler.GetPersonalProfileHandler(runtime.PersonalProfile))
+			profile.PUT("", standardJSONBody, handler.SavePersonalProfileHandler(runtime.PersonalProfile))
+		}
+
 		// 文件预览链接 API
 		preview := apiV1.Group("/preview")
 		{

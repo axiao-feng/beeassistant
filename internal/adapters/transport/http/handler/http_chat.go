@@ -70,7 +70,7 @@ func (rt *Runtime) ChatHandlerWithState(state *appstate.State) gin.HandlerFunc {
 		recorder, releaseRecorder := rt.acquireRecorder(sessionID)
 		defer releaseRecorder()
 		manager := memoryFromState(state)
-		turnInput, userDisplayText := buildChatInput(recorder, req.Message, req.Contents, manager)
+		turnInput, userDisplayText := buildChatInput(recorder, req.Message, req.Contents, manager, rt.PersonalProfile)
 
 		if req.Stream {
 			Fail(c, http.StatusBadRequest, "stream=true is not supported on /api/fkteams/chat; use /api/fkteams/stream/start")

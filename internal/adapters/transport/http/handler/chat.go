@@ -55,7 +55,7 @@ func messageContentParts(message domainmessage.Message) []domainmessage.ContentP
 }
 
 // buildChatInput 构建输入消息（含历史），支持多模态
-func buildChatInput(recorder *eventlog.HistoryRecorder, message string, contents []ContentPart, manager appstate.MemoryManager) (input domainmessage.TurnInput, displayText string) {
+func buildChatInput(recorder *eventlog.HistoryRecorder, message string, contents []ContentPart, manager appstate.MemoryManager, profileStore *PersonalProfileStore) (input domainmessage.TurnInput, displayText string) {
 	if len(contents) > 0 {
 		parts := convertContentParts(contents)
 		displayText = appchat.ExtractTextFromParts(parts)
@@ -67,7 +67,7 @@ func buildChatInput(recorder *eventlog.HistoryRecorder, message string, contents
 		displayText = message
 		input = appchat.BuildTurnInputWithMemory(recorder, message, manager)
 	}
-	return
+	return appendPersonalProfile(input, profileStore), displayText
 }
 
 func queuedChatMessage(kind taskstream.QueueKind, message string, contents []ContentPart) taskstream.QueuedMessage {
@@ -87,7 +87,7 @@ func queuedChatMessage(kind taskstream.QueueKind, message string, contents []Con
 	return queued
 }
 
-func buildQueuedChatInput(recorder *eventlog.HistoryRecorder, msg taskstream.QueuedMessage, manager appstate.MemoryManager) domainmessage.TurnInput {
+func buildQueuedChatInput(recorder *eventlog.HistoryRecorder, msg taskstream.QueuedMessage, manager appstate.MemoryManager, profileStore *PersonalProfileStore) domainmessage.TurnInput {
 	if len(msg.Parts) > 0 {
 		displayText := appchat.ExtractTextFromParts(msg.Parts)
 		if displayText == "" {
@@ -96,9 +96,38 @@ func buildQueuedChatInput(recorder *eventlog.HistoryRecorder, msg taskstream.Que
 		if displayText == "" {
 			displayText = msg.Text
 		}
-		return appchat.BuildMultimodalTurnInputWithMemory(recorder, displayText, msg.Parts, manager)
+		return appendPersonalProfile(appchat.BuildMultimodalTurnInputWithMemory(recorder, displayText, msg.Parts, manager), profileStore)
 	}
-	return appchat.BuildTurnInputWithMemory(recorder, msg.Text, manager)
+	return appendPersonalProfile(appchat.BuildTurnInputWithMemory(recorder, msg.Text, manager), profileStore)
+}
+
+func appendPersonalProfile(input domainmessage.TurnInput, store *PersonalProfileStore) domainmessage.TurnInput {
+	if store == nil {
+		return input
+	}
+	profile, err := store.Get()
+	if err != nil || profile.Name == "" && profile.Occupation == "" && profile.Location == "" && profile.Goals == "" && profile.Notes == "" {
+		return input
+	}
+	var content strings.Builder
+	content.WriteString("## 用户个人资料\n")
+	if profile.Name != "" {
+		fmt.Fprintf(&content, "称呼：%s\n", profile.Name)
+	}
+	if profile.Occupation != "" {
+		fmt.Fprintf(&content, "职业或身份：%s\n", profile.Occupation)
+	}
+	if profile.Location != "" {
+		fmt.Fprintf(&content, "所在城市：%s\n", profile.Location)
+	}
+	if profile.Goals != "" {
+		fmt.Fprintf(&content, "当前目标：%s\n", profile.Goals)
+	}
+	if profile.Notes != "" {
+		fmt.Fprintf(&content, "补充说明：%s\n", profile.Notes)
+	}
+	input.Context = append([]domainmessage.Message{{Role: domainmessage.RoleSystem, Content: content.String()}}, input.Context...)
+	return input
 }
 
 func enqueueTaskMessage(stream *taskstream.Stream, sessionID string, kind taskstream.QueueKind, message string, contents []ContentPart) (taskstream.QueuedMessage, error) {

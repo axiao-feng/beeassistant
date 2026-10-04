@@ -28,28 +28,29 @@ import (
 
 // Runtime 持有单个 HTTP server 实例的运行态依赖。
 type Runtime struct {
-	Streams        *taskstream.Manager
-	Sessions       *eventlog.SessionHistoryManager
-	HistoryDir     string
-	RunnerCache    *appagent.Cache
-	Connections    *WebSocketHub
-	ChunkUploads   *ChunkUploadStore
-	PreviewLinks   *PreviewLinkStore
-	SessionShares  *SessionShareStore
-	SessionService *appsession.Service
-	Favicons       *FaviconProxy
-	Scheduler      *appschedule.Service
-	PersonalTodos  *PersonalTodoStore
-	AgentRegistry  *agents.Registry
-	ToolRegistry   *apptools.ToolGroupRegistry
-	ToolDisplays   *toolmeta.Registry
-	SkillProviders *appskill.ProviderRegistry
-	ModelRegistry  *modelregistry.Registry
-	Providers      *modelproviders.Registry
-	Runtime        runtimeport.Runtime
-	Interrupt      runtimeport.InterruptRuntime
-	HookBus        *hooks.Bus
-	ResetChannels  func()
+	Streams         *taskstream.Manager
+	Sessions        *eventlog.SessionHistoryManager
+	HistoryDir      string
+	RunnerCache     *appagent.Cache
+	Connections     *WebSocketHub
+	ChunkUploads    *ChunkUploadStore
+	PreviewLinks    *PreviewLinkStore
+	SessionShares   *SessionShareStore
+	SessionService  *appsession.Service
+	Favicons        *FaviconProxy
+	Scheduler       *appschedule.Service
+	PersonalTodos   *PersonalTodoStore
+	PersonalProfile *PersonalProfileStore
+	AgentRegistry   *agents.Registry
+	ToolRegistry    *apptools.ToolGroupRegistry
+	ToolDisplays    *toolmeta.Registry
+	SkillProviders  *appskill.ProviderRegistry
+	ModelRegistry   *modelregistry.Registry
+	Providers       *modelproviders.Registry
+	Runtime         runtimeport.Runtime
+	Interrupt       runtimeport.InterruptRuntime
+	HookBus         *hooks.Bus
+	ResetChannels   func()
 
 	sessionOperationsMu sync.Mutex
 	sessionOperations   map[string]*sessionOperationLock
@@ -63,28 +64,29 @@ type Runtime struct {
 
 // RuntimeOptions 用于测试或嵌入式场景显式替换 HTTP runtime 依赖。
 type RuntimeOptions struct {
-	Streams        *taskstream.Manager
-	Sessions       *eventlog.SessionHistoryManager
-	HistoryDir     string
-	RunnerCache    *appagent.Cache
-	Connections    *WebSocketHub
-	ChunkUploads   *ChunkUploadStore
-	PreviewLinks   *PreviewLinkStore
-	SessionShares  *SessionShareStore
-	SessionService *appsession.Service
-	Favicons       *FaviconProxy
-	Scheduler      *appschedule.Service
-	PersonalTodos  *PersonalTodoStore
-	AgentRegistry  *agents.Registry
-	ToolRegistry   *apptools.ToolGroupRegistry
-	ToolDisplays   *toolmeta.Registry
-	SkillProviders *appskill.ProviderRegistry
-	ModelRegistry  *modelregistry.Registry
-	Providers      *modelproviders.Registry
-	Runtime        runtimeport.Runtime
-	Interrupt      runtimeport.InterruptRuntime
-	HookBus        *hooks.Bus
-	ResetChannels  func()
+	Streams         *taskstream.Manager
+	Sessions        *eventlog.SessionHistoryManager
+	HistoryDir      string
+	RunnerCache     *appagent.Cache
+	Connections     *WebSocketHub
+	ChunkUploads    *ChunkUploadStore
+	PreviewLinks    *PreviewLinkStore
+	SessionShares   *SessionShareStore
+	SessionService  *appsession.Service
+	Favicons        *FaviconProxy
+	Scheduler       *appschedule.Service
+	PersonalTodos   *PersonalTodoStore
+	PersonalProfile *PersonalProfileStore
+	AgentRegistry   *agents.Registry
+	ToolRegistry    *apptools.ToolGroupRegistry
+	ToolDisplays    *toolmeta.Registry
+	SkillProviders  *appskill.ProviderRegistry
+	ModelRegistry   *modelregistry.Registry
+	Providers       *modelproviders.Registry
+	Runtime         runtimeport.Runtime
+	Interrupt       runtimeport.InterruptRuntime
+	HookBus         *hooks.Bus
+	ResetChannels   func()
 }
 
 // NewRuntime 创建一个独立的 HTTP runtime 实例。
@@ -98,29 +100,30 @@ func NewRuntime(options ...RuntimeOptions) *Runtime {
 		streams = taskstream.NewManager()
 	}
 	rt := &Runtime{
-		Streams:        streams,
-		Sessions:       opt.Sessions,
-		HistoryDir:     opt.HistoryDir,
-		RunnerCache:    opt.RunnerCache,
-		Connections:    opt.Connections,
-		ChunkUploads:   opt.ChunkUploads,
-		PreviewLinks:   opt.PreviewLinks,
-		SessionShares:  opt.SessionShares,
-		SessionService: opt.SessionService,
-		Favicons:       opt.Favicons,
-		Scheduler:      opt.Scheduler,
-		PersonalTodos:  opt.PersonalTodos,
-		AgentRegistry:  opt.AgentRegistry,
-		ToolRegistry:   opt.ToolRegistry,
-		ToolDisplays:   opt.ToolDisplays,
-		SkillProviders: opt.SkillProviders,
-		ModelRegistry:  opt.ModelRegistry,
-		Providers:      opt.Providers,
-		Runtime:        opt.Runtime,
-		Interrupt:      opt.Interrupt,
-		HookBus:        opt.HookBus,
-		ResetChannels:  opt.ResetChannels,
-		shutdownDone:   make(chan struct{}),
+		Streams:         streams,
+		Sessions:        opt.Sessions,
+		HistoryDir:      opt.HistoryDir,
+		RunnerCache:     opt.RunnerCache,
+		Connections:     opt.Connections,
+		ChunkUploads:    opt.ChunkUploads,
+		PreviewLinks:    opt.PreviewLinks,
+		SessionShares:   opt.SessionShares,
+		SessionService:  opt.SessionService,
+		Favicons:        opt.Favicons,
+		Scheduler:       opt.Scheduler,
+		PersonalTodos:   opt.PersonalTodos,
+		PersonalProfile: opt.PersonalProfile,
+		AgentRegistry:   opt.AgentRegistry,
+		ToolRegistry:    opt.ToolRegistry,
+		ToolDisplays:    opt.ToolDisplays,
+		SkillProviders:  opt.SkillProviders,
+		ModelRegistry:   opt.ModelRegistry,
+		Providers:       opt.Providers,
+		Runtime:         opt.Runtime,
+		Interrupt:       opt.Interrupt,
+		HookBus:         opt.HookBus,
+		ResetChannels:   opt.ResetChannels,
+		shutdownDone:    make(chan struct{}),
 	}
 	if rt.Sessions == nil {
 		rt.Sessions = eventlog.NewSessionHistoryManager()
@@ -151,6 +154,9 @@ func NewRuntime(options ...RuntimeOptions) *Runtime {
 	}
 	if rt.PersonalTodos == nil {
 		rt.PersonalTodos = defaultPersonalTodoStore()
+	}
+	if rt.PersonalProfile == nil {
+		rt.PersonalProfile = defaultPersonalProfileStore()
 	}
 	if rt.ToolDisplays == nil {
 		rt.ToolDisplays = toolmeta.NewRegistry()

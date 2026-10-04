@@ -111,7 +111,7 @@ func (rt *Runtime) StreamStartHandlerWithState(state *appstate.State) gin.Handle
 		rt.restorePersistentQueue(sessionID, stream)
 		recorder, releaseRecorder := rt.acquireRecorderLocked(sessionID)
 		manager := memoryFromState(state)
-		turnInput, userDisplayText := buildChatInput(recorder, req.Message, req.Contents, manager)
+		turnInput, userDisplayText := buildChatInput(recorder, req.Message, req.Contents, manager, rt.PersonalProfile)
 
 		rt.updateSessionExecutionMetadata(sessionID, userDisplayText, mode, req.AgentName)
 		initialRunID := newTurnRunID(sessionID)
@@ -437,7 +437,7 @@ func (rt *Runtime) runStreamTask(ctx context.Context, stream *taskstream.Stream,
 			publishQueueUpdated(stream, sessionID)
 			rt.persistQueueSnapshot(sessionID, stream)
 			currentDisplayText = queued.DisplayText
-			currentInput = buildQueuedChatInput(recorder, queued, manager)
+			currentInput = buildQueuedChatInput(recorder, queued, manager, rt.PersonalProfile)
 			currentRunID = queuedTurnRunID(sessionID, queued)
 			rt.updateSessionExecutionMetadata(sessionID, currentDisplayText, stream.Mode(), stream.AgentName())
 			publishQueuedExecutionStart(stream, sessionID, queued, currentRunID)

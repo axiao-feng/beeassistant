@@ -50,8 +50,20 @@ var dangerousPatterns = []struct {
 		MatchFn: func(cmd string) bool {
 			return strings.Contains(cmd, "remove-item -recurse -force c:\\")
 		}},
+	{Pattern: "remove-item -force -recurse c:\\", Description: "递归删除系统盘", Risks: []string{"会导致系统完全崩溃"}},
+	{Pattern: "del /s /q c:\\", Description: "递归删除系统盘", Risks: []string{"会导致系统完全崩溃"}},
+	{Pattern: "erase /s /q c:\\", Description: "递归删除系统盘", Risks: []string{"会导致系统完全崩溃"}},
+	{Pattern: "rmdir /s /q c:\\", Description: "递归删除系统盘", Risks: []string{"会导致系统完全崩溃"}},
+	{Pattern: "rd /s /q c:\\", Description: "递归删除系统盘", Risks: []string{"会导致系统完全崩溃"}},
+	{Pattern: "format c:", Description: "格式化系统盘", Risks: []string{"会清除系统盘数据"}},
+	{Pattern: "diskpart", Description: "磁盘分区管理", Risks: []string{"可能修改或清除磁盘分区"}},
+	{Pattern: "powershell -encodedcommand", Description: "执行编码 PowerShell 命令", Risks: []string{"命令内容无法透明审查"}},
+	{Pattern: "powershell -enc", Description: "执行编码 PowerShell 命令", Risks: []string{"命令内容无法透明审查"}},
+	{Pattern: "-executionpolicy bypass", Description: "绕过 PowerShell 执行策略", Risks: []string{"可能执行未授权脚本"}},
 	{Pattern: "format-volume", Description: "格式化卷", Risks: []string{"会清除磁盘数据"}},
 	{Pattern: "clear-disk", Description: "清除磁盘", Risks: []string{"会永久擦除数据"}},
+	{Pattern: "takeown /f c:\\", Description: "获取系统盘所有权", Risks: []string{"可能破坏系统文件权限"}},
+	{Pattern: "icacls c:\\ /grant", Description: "修改系统盘权限", Risks: []string{"可能导致系统文件暴露或不可用"}},
 	{Pattern: "stop-process -id 0", Description: "终止系统关键进程", Risks: []string{"会导致系统崩溃"}},
 	{Pattern: "stop-computer", Description: "关闭计算机", Risks: []string{"会立即关机"}},
 	{Pattern: "restart-computer", Description: "重启计算机", Risks: []string{"会立即重启"}},
@@ -90,6 +102,14 @@ var riskyPatterns = []struct {
 	{"invoke-webrequest", LevelModerate, "下载文件", "可能下载恶意内容"},
 	{"invoke-restmethod", LevelModerate, "调用远程接口", "可能泄露数据或下载恶意内容"},
 	{"new-psdrive", LevelModerate, "映射网络驱动器", "可能连接不可信网络资源"},
+	{"del /s", LevelDangerous, "递归删除文件", "可能意外删除大量文件"},
+	{"erase /s", LevelDangerous, "递归删除文件", "可能意外删除大量文件"},
+	{"rmdir /s", LevelDangerous, "递归删除目录", "可能意外删除大量文件"},
+	{"rd /s", LevelDangerous, "递归删除目录", "可能意外删除大量文件"},
+	{"takeown ", LevelDangerous, "获取文件所有权", "可能破坏权限边界"},
+	{"icacls ", LevelDangerous, "修改文件权限", "可能暴露或锁定文件"},
+	{"format ", LevelDangerous, "格式化磁盘", "会清除磁盘数据"},
+	{"diskpart", LevelDangerous, "磁盘分区管理", "可能修改或清除磁盘分区"},
 }
 
 func evaluateSecurity(command string) SecurityEvaluation {
@@ -112,7 +132,7 @@ func evaluateSecurity(command string) SecurityEvaluation {
 }
 
 func evaluateSingleCommand(cmdLower string) SecurityEvaluation {
-	cmdLower = strings.ToLower(strings.TrimSpace(cmdLower))
+	cmdLower = normalizeCommand(cmdLower)
 
 	// 末尾裸 & 导致进程脱离 Setpgid 管控，超时/取消时 kill 不到
 	if cmdLower != "" && cmdLower[len(cmdLower)-1] == '&' && !strings.HasSuffix(cmdLower, "&&") {
@@ -148,6 +168,37 @@ func evaluateSingleCommand(cmdLower string) SecurityEvaluation {
 	}
 
 	return SecurityEvaluation{Level: LevelSafe, Description: "常规命令"}
+}
+
+// normalizeCommand 只折叠引号外的空白，避免大小写或多余空格绕过规则，
+// 同时保留参数字符串中的原始空白，降低误报。
+func normalizeCommand(command string) string {
+	command = strings.ToLower(strings.TrimSpace(command))
+	var normalized strings.Builder
+	inSingle, inDouble := false, false
+	pendingSpace := false
+	for _, r := range command {
+		if !inSingle && !inDouble && (r == ' ' || r == '\t' || r == '\r' || r == '\n') {
+			pendingSpace = normalized.Len() > 0
+			continue
+		}
+		if pendingSpace {
+			normalized.WriteByte(' ')
+			pendingSpace = false
+		}
+		switch r {
+		case '\'':
+			if !inDouble {
+				inSingle = !inSingle
+			}
+		case '"':
+			if !inSingle {
+				inDouble = !inDouble
+			}
+		}
+		normalized.WriteRune(r)
+	}
+	return strings.TrimSpace(normalized.String())
 }
 
 // splitShellCommands 按 &&、;、| 拆分为独立子命令，关注引号

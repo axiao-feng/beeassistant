@@ -30,6 +30,27 @@ func TestEvaluateSecurityClassifiesCommands(t *testing.T) {
 	}
 }
 
+func TestEvaluateSecurityNormalizesWindowsDangerousCommands(t *testing.T) {
+	tests := []struct {
+		name string
+		cmd  string
+	}{
+		{name: "powershell whitespace", cmd: "Remove-Item\t-Recurse  -Force C:\\"},
+		{name: "cmd recursive delete", cmd: "del /S /Q C:\\"},
+		{name: "encoded powershell", cmd: "powershell -enc SQBFAFgA"},
+		{name: "execution policy bypass", cmd: "powershell -ExecutionPolicy   Bypass -File script.ps1"},
+		{name: "diskpart", cmd: "diskpart /s wipe.txt"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := evaluateSecurity(tt.cmd); got.Level != LevelDangerous {
+				t.Fatalf("level = %v, want dangerous (%s)", got.Level, got.Description)
+			}
+		})
+	}
+}
+
 func TestSplitShellCommandsRespectsQuotesAndOrOperator(t *testing.T) {
 	got := splitShellCommands(`echo "a && b"; grep foo file || true | wc -l`)
 	want := []string{`echo "a && b"`, "grep foo file || true", "wc -l"}

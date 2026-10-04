@@ -161,3 +161,44 @@ func TestSaveOutputToFileAndShellHelpers(t *testing.T) {
 		t.Fatalf("buildShellCommand returned shell=%q args=%#v", shell, args)
 	}
 }
+
+func TestSmartExecuteBackgroundRegistersLifecycleTask(t *testing.T) {
+	resetBackgroundTasksForTest(t)
+	tools := NewCommandTools(t.TempDir(), WithApprovalMode(ApprovalModeReject))
+	resp, err := tools.SmartExecute(context.Background(), &SmartExecuteRequest{
+		Command:    "echo beeassistant",
+		Background: true,
+		Reason:     "test background lifecycle",
+	})
+	if err != nil {
+		t.Fatalf("SmartExecute background returned error: %v", err)
+	}
+	if !resp.Success || resp.TaskID == "" || resp.PID == 0 {
+		t.Fatalf("unexpected background response: %#v", resp)
+	}
+
+	deadline := time.Now().Add(3 * time.Second)
+	for time.Now().Before(deadline) {
+		result, queryErr := tools.SmartExecute(context.Background(), &SmartExecuteRequest{TaskID: resp.TaskID})
+		if queryErr != nil {
+			t.Fatalf("query background task: %v", queryErr)
+		}
+		if result.WarningMessage == "" {
+			if !result.Success {
+				t.Fatalf("background task failed: %#v", result)
+			}
+			output, readErr := os.ReadFile(filepath.Join(tools.workDir, result.OutputFilePath))
+			if readErr != nil {
+				t.Fatalf("read background output: %v", readErr)
+			}
+			if !strings.Contains(string(output), "beeassistant") {
+				t.Fatalf("background output = %q", output)
+			}
+			return
+		}
+		time.Sleep(25 * time.Millisecond)
+	}
+
+	_, _ = tools.SmartExecute(context.Background(), &SmartExecuteRequest{TaskAction: "terminate", TaskID: resp.TaskID})
+	t.Fatal("background task did not finish before timeout")
+}

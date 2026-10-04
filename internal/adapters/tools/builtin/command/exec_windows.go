@@ -54,8 +54,15 @@ func startBackgroundProcess(command, workDir string) (*backgroundProcessResult, 
 		return nil, err
 	}
 	pid := cmd.Process.Pid
-	_ = cmd.Process.Release()
 	stdoutFile.Close()
 	stderrFile.Close()
-	return &backgroundProcessResult{PID: pid, StdoutFile: stdoutPath, StderrFile: stderrPath}, nil
+	return &backgroundProcessResult{
+		PID:        pid,
+		StdoutFile: stdoutPath,
+		StderrFile: stderrPath,
+		Wait:       cmd.Wait,
+		Terminate: func() error {
+			return exec.Command("taskkill", "/F", "/T", "/PID", fmt.Sprint(pid)).Run()
+		},
+	}, nil
 }

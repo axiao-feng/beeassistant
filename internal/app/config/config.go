@@ -697,7 +697,7 @@ func Save(cfg *Config) error {
 	if err != nil {
 		return fmt.Errorf("failed to marshal config: %w", err)
 	}
-	if err := atomicfile.WriteFile(filePath, data, 0644); err != nil {
+	if err := atomicfile.WriteFile(filePath, data, 0600); err != nil {
 		return fmt.Errorf("failed to save config: %w", err)
 	}
 
@@ -1074,5 +1074,5 @@ func GenerateExample() error {
 	if err != nil {
 		return err
 	}
-	return atomicfile.WriteFile(filePath, data, 0644)
+	return atomicfile.WriteFile(filePath, data, 0600)
 }

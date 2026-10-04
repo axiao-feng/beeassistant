@@ -3,6 +3,7 @@ package config
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"sync"
 	"testing"
@@ -311,6 +312,15 @@ func TestGenerateExample(t *testing.T) {
 	data, err := os.ReadFile(configPath)
 	if err != nil {
 		t.Fatalf("read generated config: %v", err)
+	}
+	if runtime.GOOS != "windows" {
+		info, statErr := os.Stat(configPath)
+		if statErr != nil {
+			t.Fatalf("stat generated config: %v", statErr)
+		}
+		if info.Mode().Perm() != 0600 {
+			t.Fatalf("generated config permissions = %o, want 600", info.Mode().Perm())
+		}
 	}
 	text := string(data)
 	for _, want := range []string{"GPT-5", "deepseek-chat", "蜜蜂助手帮助", "sk-fkteams-your-api-key", "channels/weixin/credentials.json", "MCP服务名称", "auto_approve"} {

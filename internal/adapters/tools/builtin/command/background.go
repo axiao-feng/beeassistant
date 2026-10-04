@@ -1,7 +1,6 @@
 package command
 
 import (
-	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -23,7 +22,7 @@ type backgroundTask struct {
 	command string
 	startAt time.Time
 	doneAt  time.Time
-	cancel  context.CancelFunc
+	cancel  func()
 }
 
 var (
@@ -242,6 +241,57 @@ func (ec *executionContext) registerAndWaitBackground() (string, *backgroundTask
 		resp := ec.buildResponse(err)
 		resp.IsBackground = true
 		resp.TaskID = taskID
+
+		task.mu.Lock()
+		task.resp = resp
+		task.done = true
+		task.doneAt = time.Now()
+		task.mu.Unlock()
+	}()
+
+	return taskID, task, true
+}
+
+// registerStartedBackground 将已启动的后台进程纳入统一任务生命周期管理。
+// 这样显式 background=true 的命令也能被查询、终止，并在应用退出时清理。
+func registerStartedBackground(req *SmartExecuteRequest, eval SecurityEvaluation, workDir string, process *backgroundProcessResult) (string, *backgroundTask, bool) {
+	taskID := fmt.Sprintf("bg_%d", time.Now().UnixNano())
+	task := &backgroundTask{
+		command: req.Command,
+		startAt: time.Now(),
+		cancel: func() {
+			if process.Terminate != nil {
+				_ = process.Terminate()
+			}
+		},
+	}
+
+	bgTasksMu.Lock()
+	if !reserveBackgroundTaskSlot() {
+		bgTasksMu.Unlock()
+		return "", nil, false
+	}
+	bgTasks[taskID] = task
+	bgTasksMu.Unlock()
+
+	stdoutRel, _ := filepath.Rel(workDir, process.StdoutFile)
+	go func() {
+		err := error(nil)
+		if process.Wait != nil {
+			err = process.Wait()
+		}
+		resp := &SmartExecuteResponse{
+			Success:        err == nil,
+			Command:        req.Command,
+			SecurityLevel:  securityLevelName(eval.Level),
+			IsBackground:   true,
+			TaskID:         taskID,
+			PID:            process.PID,
+			OutputFilePath: stdoutRel,
+		}
+		if err != nil {
+			resp.ErrorMessage = fmt.Sprintf("background command exited: %v", err)
+		}
 
 		task.mu.Lock()
 		task.resp = resp

@@ -92,6 +92,8 @@ type backgroundProcessResult struct {
 	PID        int
 	StdoutFile string
 	StderrFile string
+	Wait       func() error
+	Terminate  func() error
 }
 
 // executionContext 单次命令执行的上下文，封装所有执行期间的共享状态
@@ -353,6 +355,20 @@ func (t *CommandTools) executeBackground(req *SmartExecuteRequest, eval Security
 			ErrorMessage:  fmt.Sprintf("failed to start background command: %v", err),
 		}, nil
 	}
+	taskID, _, ok := registerStartedBackground(req, eval, t.workDir, result)
+	if !ok {
+		if result.Terminate != nil {
+			_ = result.Terminate()
+		}
+		if result.Wait != nil {
+			_ = result.Wait()
+		}
+		return &SmartExecuteResponse{
+			Command:       req.Command,
+			SecurityLevel: securityLevelName(eval.Level),
+			ErrorMessage:  "too many background tasks are running",
+		}, nil
+	}
 
 	stdoutRel, _ := filepath.Rel(t.workDir, result.StdoutFile)
 	stderrRel, _ := filepath.Rel(t.workDir, result.StderrFile)
@@ -362,11 +378,12 @@ func (t *CommandTools) executeBackground(req *SmartExecuteRequest, eval Security
 		Command:        req.Command,
 		SecurityLevel:  securityLevelName(eval.Level),
 		IsBackground:   true,
+		TaskID:         taskID,
 		PID:            result.PID,
 		OutputFilePath: stdoutRel,
 		WarningMessage: fmt.Sprintf(
-			"命令已在后台启动，PID: %d。stdout: %s, stderr: %s。可通过 kill %d 终止，执行完毕后用 file_read 读取输出文件。",
-			result.PID, stdoutRel, stderrRel, result.PID,
+			"命令已在后台启动，任务 ID: %s，PID: %d。stdout: %s, stderr: %s。可通过 task_id + task_action=terminate 终止，执行完毕后用 file_read 读取输出文件。",
+			taskID, result.PID, stdoutRel, stderrRel,
 		),
 	}, nil
 }

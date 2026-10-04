@@ -271,8 +271,8 @@ func TestManagerLimitsConcurrentExtractions(t *testing.T) {
 			t.Fatalf("extraction %d should be accepted", i)
 		}
 	}
-	if manager.ExtractAndStoreAsync(messages, "session-overflow") {
-		t.Fatal("extraction above the global limit should be rejected")
+	if !manager.ExtractAndStoreAsync(messages, "session-overflow") {
+		t.Fatal("extraction above the global limit should be queued")
 	}
 	for i := 0; i < maxConcurrentExtractions; i++ {
 		select {
@@ -287,6 +287,9 @@ func TestManagerLimitsConcurrentExtractions(t *testing.T) {
 	}
 	if maximum := llm.maximum.Load(); maximum > maxConcurrentExtractions {
 		t.Fatalf("maximum concurrent extractions = %d", maximum)
+	}
+	if calls := llm.calls.Load(); calls != maxConcurrentExtractions+1 {
+		t.Fatalf("llm calls = %d, want queued extraction to run", calls)
 	}
 }
 
@@ -339,6 +342,7 @@ type blockingLLMClient struct {
 type concurrentLLMClient struct {
 	started chan struct{}
 	release chan struct{}
+	calls   atomic.Int32
 	active  atomic.Int32
 	maximum atomic.Int32
 }
@@ -352,6 +356,7 @@ func asyncExtractionMessages() []Message {
 }
 
 func (c *concurrentLLMClient) Complete(ctx context.Context, _ string) (string, error) {
+	c.calls.Add(1)
 	active := c.active.Add(1)
 	defer c.active.Add(-1)
 	for {

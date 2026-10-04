@@ -22,8 +22,14 @@ const (
 	extractCooldown    = 3 * time.Minute
 
 	maxConcurrentExtractions = 4
+	maxPendingExtractions    = 64
 	maxTrackedSessions       = 4_096
 )
+
+type pendingExtraction struct {
+	sessionID string
+	messages  []Message
+}
 
 // Manager 记忆管理器
 type Manager struct {
@@ -46,6 +52,8 @@ type Manager struct {
 	stopDone         chan struct{}
 	extractionSlots  chan struct{}
 	extracting       map[string]struct{}
+	pending          map[string]pendingExtraction
+	pendingOrder     []string
 	extractedOffsets map[string]int
 	lastExtractTime  map[string]time.Time
 	sessionAccess    map[string]time.Time
@@ -87,6 +95,7 @@ func NewManager(workspaceDir string, llmClient LLMClient, cfg *Config) *Manager 
 		sessionAccess:    make(map[string]time.Time),
 		extractionSlots:  make(chan struct{}, maxConcurrentExtractions),
 		extracting:       make(map[string]struct{}),
+		pending:          make(map[string]pendingExtraction),
 		stopDone:         make(chan struct{}),
 	}
 	m.load()
@@ -163,17 +172,46 @@ func (m *Manager) ExtractAndStore(ctx context.Context, messages []Message, sessi
 
 // ExtractAndStoreAsync 原子登记并异步执行一次记忆提取。
 func (m *Manager) ExtractAndStoreAsync(messages []Message, sessionID string) bool {
-	if !m.beginExtraction(sessionID) {
+	if len(messages) == 0 || sessionID == "" {
 		return false
 	}
-	copied := append([]Message(nil), messages...)
-	go func() {
-		defer m.finishExtraction(sessionID)
-		ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
-		defer cancel()
-		m.ExtractAndStore(ctx, copied, sessionID)
-	}()
+	request := pendingExtraction{sessionID: sessionID, messages: append([]Message(nil), messages...)}
+
+	m.taskMu.Lock()
+	if m.stopping || m.paused {
+		m.taskMu.Unlock()
+		return false
+	}
+	if _, exists := m.extracting[sessionID]; exists {
+		m.taskMu.Unlock()
+		return false
+	}
+	if _, exists := m.pending[sessionID]; exists {
+		m.taskMu.Unlock()
+		return false
+	}
+	if m.startExtractionLocked(request) {
+		m.wg.Add(1)
+		m.taskMu.Unlock()
+		go m.runExtraction(request)
+		return true
+	}
+	if len(m.pendingOrder) >= maxPendingExtractions {
+		m.taskMu.Unlock()
+		return false
+	}
+	m.pending[sessionID] = request
+	m.pendingOrder = append(m.pendingOrder, sessionID)
+	m.wg.Add(1)
+	m.taskMu.Unlock()
 	return true
+}
+
+func (m *Manager) runExtraction(request pendingExtraction) {
+	defer m.finishExtraction(request.sessionID)
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
+	m.ExtractAndStore(ctx, request.messages, request.sessionID)
 }
 
 // Search 检索记忆，使用 BM25 bigram 分词进行语义匹配
@@ -346,22 +384,13 @@ func (m *Manager) FlushExtract(ctx context.Context, messages []Message, sessionI
 	m.mu.Unlock()
 }
 
-func (m *Manager) beginExtraction(sessionID string) bool {
-	m.taskMu.Lock()
-	defer m.taskMu.Unlock()
-	if m.stopping || m.paused {
-		return false
-	}
-	if _, exists := m.extracting[sessionID]; exists {
-		return false
-	}
+func (m *Manager) startExtractionLocked(request pendingExtraction) bool {
 	select {
 	case m.extractionSlots <- struct{}{}:
 	default:
 		return false
 	}
-	m.extracting[sessionID] = struct{}{}
-	m.wg.Add(1)
+	m.extracting[request.sessionID] = struct{}{}
 	return true
 }
 
@@ -369,8 +398,35 @@ func (m *Manager) finishExtraction(sessionID string) {
 	m.taskMu.Lock()
 	delete(m.extracting, sessionID)
 	<-m.extractionSlots
+	var next *pendingExtraction
+	discarded := 0
+	if m.paused {
+		discarded = len(m.pending)
+		m.pending = make(map[string]pendingExtraction)
+		m.pendingOrder = nil
+	} else {
+		for len(m.pendingOrder) > 0 {
+			candidateID := m.pendingOrder[0]
+			m.pendingOrder = m.pendingOrder[1:]
+			candidate, ok := m.pending[candidateID]
+			if !ok {
+				continue
+			}
+			delete(m.pending, candidateID)
+			m.extractionSlots <- struct{}{}
+			m.extracting[candidate.sessionID] = struct{}{}
+			next = &candidate
+			break
+		}
+	}
 	m.taskMu.Unlock()
 	m.wg.Done()
+	for i := 0; i < discarded; i++ {
+		m.wg.Done()
+	}
+	if next != nil {
+		go m.runExtraction(*next)
+	}
 }
 
 func (m *Manager) setSessionProgressLocked(sessionID string, offset int, extractedAt time.Time) {

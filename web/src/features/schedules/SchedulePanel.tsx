@@ -28,6 +28,7 @@ import { MarkdownContent } from "@/components/markdown/MarkdownContent";
 import { cn } from "@/lib/cn";
 import { formatTime, shortID } from "@/lib/format";
 import type { ScheduleHistoryEntry, ScheduleTask, ScheduleTaskPayload } from "@/types/schedules";
+import { TodoListPanel } from "./TodoListPanel";
 
 type ScheduleFilter = "all" | "active" | "completed" | "cancelled" | "failed";
 type ScheduleFormMode = "once" | "cron";
@@ -195,6 +196,7 @@ export function SchedulePanel() {
   return (
     <div className="chat-scroll h-full overflow-auto p-3 sm:p-6">
       <div className="mx-auto flex max-w-7xl flex-col gap-4">
+        <TodoListPanel />
         <Panel>
           <PanelHeader className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
             <div className="min-w-0">

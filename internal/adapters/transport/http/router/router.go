@@ -118,6 +118,7 @@ func registerAPIRoutesWithRuntime(r *gin.Engine, _ bool, state *appstate.State, 
 		{
 			files.GET("", handler.GetFilesHandler())
 			files.GET("/search", handler.SearchFilesHandler())
+			files.GET("/content-search", handler.SearchFileContentsHandler())
 			files.GET("/content", handler.GetFileContentHandler())
 			files.PUT("/content", contentJSONBody, handler.SaveFileContentHandler())
 			files.GET("/download", handler.DownloadFileHandler())
@@ -126,6 +127,15 @@ func registerAPIRoutesWithRuntime(r *gin.Engine, _ bool, state *appstate.State, 
 			files.POST("/upload/chunk", chunkUploadBody, runtime.UploadChunkHandler())
 			files.DELETE("", smallJSONBody, handler.DeleteFileHandler())
 			files.GET("/serve/*filepath", handler.ServeFileHandler())
+		}
+
+		// 个人待办清单 API
+		todos := apiV1.Group("/todos")
+		{
+			todos.GET("", handler.GetPersonalTodosHandler(runtime.PersonalTodos))
+			todos.POST("", standardJSONBody, handler.CreatePersonalTodoHandler(runtime.PersonalTodos))
+			todos.PATCH("/:id", smallJSONBody, handler.UpdatePersonalTodoHandler(runtime.PersonalTodos))
+			todos.DELETE("/:id", controlBody, handler.DeletePersonalTodoHandler(runtime.PersonalTodos))
 		}
 
 		// 文件预览链接 API

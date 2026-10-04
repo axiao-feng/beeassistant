@@ -1,8 +1,10 @@
 import {
   Box,
+  CalendarClock,
   Download,
   ExternalLink,
   FilePlus,
+  FileCode2,
   FileText,
   Folder,
   FolderPlus,
@@ -42,6 +44,7 @@ import { Dialog } from "@/components/ui/dialog";
 import { LoadingSurface } from "@/components/ui/loading-surface";
 import { Panel, PanelBody, PanelHeader } from "@/components/ui/panel";
 import { cn } from "@/lib/cn";
+import { pushAppPath } from "@/lib/navigation";
 import type { SkillCreateRequest, SkillFileEntry, SkillInfo } from "@/types/skills";
 
 type SkillView = "installed" | "market";
@@ -365,9 +368,41 @@ export function SkillPanel() {
     void loadLocal();
   }, []);
 
+  function openAutomation(path: "/schedules" | "/config?tab=javascript", panel: "schedules" | "config") {
+    dispatch(appActions.setActivePanel(panel));
+    pushAppPath(path);
+  }
+
   return (
     <div className="chat-scroll h-full overflow-auto p-3 sm:p-6">
       <div className="mx-auto flex max-w-7xl flex-col gap-4">
+        <Panel>
+          <PanelHeader>
+            <div className="flex items-center gap-3">
+              <Sparkles className="h-5 w-5 text-primary" />
+              <div>
+                <div className="font-semibold">自动化中心</div>
+                <div className="mt-1 text-sm text-muted-foreground">把日常工作交给定时任务和可控脚本，统一从这里进入。</div>
+              </div>
+            </div>
+          </PanelHeader>
+          <PanelBody className="grid gap-3 border-t border-border/70 md:grid-cols-2">
+            <AutomationEntry
+              icon={CalendarClock}
+              title="定时任务"
+              description="创建一次性任务或 Cron 周期任务，查看执行结果和历史记录。"
+              actionLabel="打开待办与日程"
+              onClick={() => openAutomation("/schedules", "schedules")}
+            />
+            <AutomationEntry
+              icon={FileCode2}
+              title="脚本扩展"
+              description="创建 JavaScript 工具和流程规则，配置权限、触发点并进行试运行。"
+              actionLabel="打开脚本扩展"
+              onClick={() => openAutomation("/config?tab=javascript", "config")}
+            />
+          </PanelBody>
+        </Panel>
         <Panel>
           <PanelHeader className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
             <div className="min-w-0">
@@ -534,6 +569,37 @@ export function SkillPanel() {
           onConfirm={() => void confirmRemoveSkill()}
         />
       </div>
+    </div>
+  );
+}
+
+function AutomationEntry({
+  icon: Icon,
+  title,
+  description,
+  actionLabel,
+  onClick,
+}: {
+  icon: typeof Sparkles;
+  title: string;
+  description: string;
+  actionLabel: string;
+  onClick: () => void;
+}) {
+  return (
+    <div className="flex flex-col gap-3 rounded-xl border border-border/75 bg-card/60 p-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex min-w-0 items-start gap-3">
+        <div className="mt-0.5 rounded-lg border border-primary/25 bg-primary/10 p-2 text-primary">
+          <Icon className="h-4 w-4" />
+        </div>
+        <div className="min-w-0">
+          <div className="font-semibold">{title}</div>
+          <div className="mt-1 text-sm leading-6 text-muted-foreground">{description}</div>
+        </div>
+      </div>
+      <Button className="shrink-0 whitespace-nowrap" variant="outline" onClick={onClick}>
+        {actionLabel}
+      </Button>
     </div>
   );
 }

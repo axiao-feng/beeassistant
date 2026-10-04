@@ -39,6 +39,7 @@ type Runtime struct {
 	SessionService *appsession.Service
 	Favicons       *FaviconProxy
 	Scheduler      *appschedule.Service
+	PersonalTodos  *PersonalTodoStore
 	AgentRegistry  *agents.Registry
 	ToolRegistry   *apptools.ToolGroupRegistry
 	ToolDisplays   *toolmeta.Registry
@@ -73,6 +74,7 @@ type RuntimeOptions struct {
 	SessionService *appsession.Service
 	Favicons       *FaviconProxy
 	Scheduler      *appschedule.Service
+	PersonalTodos  *PersonalTodoStore
 	AgentRegistry  *agents.Registry
 	ToolRegistry   *apptools.ToolGroupRegistry
 	ToolDisplays   *toolmeta.Registry
@@ -107,6 +109,7 @@ func NewRuntime(options ...RuntimeOptions) *Runtime {
 		SessionService: opt.SessionService,
 		Favicons:       opt.Favicons,
 		Scheduler:      opt.Scheduler,
+		PersonalTodos:  opt.PersonalTodos,
 		AgentRegistry:  opt.AgentRegistry,
 		ToolRegistry:   opt.ToolRegistry,
 		ToolDisplays:   opt.ToolDisplays,
@@ -145,6 +148,9 @@ func NewRuntime(options ...RuntimeOptions) *Runtime {
 	}
 	if rt.Favicons == nil {
 		rt.Favicons = NewFaviconProxy(FaviconProxyOptions{})
+	}
+	if rt.PersonalTodos == nil {
+		rt.PersonalTodos = defaultPersonalTodoStore()
 	}
 	if rt.ToolDisplays == nil {
 		rt.ToolDisplays = toolmeta.NewRegistry()

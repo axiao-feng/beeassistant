@@ -13,13 +13,14 @@ import {
   MoreVertical,
   RefreshCcw,
   Save,
+  Search,
   Share2,
   Trash2,
   Upload,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import type { LucideIcon } from "lucide-react";
-import { deleteFile, listFiles, readFileContent, saveFileContent, uploadFile } from "@/api/files";
+import { deleteFile, listFiles, readFileContent, saveFileContent, searchFileContents, uploadFile } from "@/api/files";
 import { filesActions, appActions } from "@/app/store";
 import { useAppDispatch, useAppSelector } from "@/app/hooks";
 import { Button } from "@/components/ui/button";
@@ -29,7 +30,7 @@ import { Panel, PanelBody, PanelHeader } from "@/components/ui/panel";
 import { formatBytes, formatTime } from "@/lib/format";
 import { cn } from "@/lib/cn";
 import { highlightCode } from "@/lib/markdown";
-import type { FileContent, FileEntry } from "@/types/files";
+import type { ContentSearchResult, FileContent, FileEntry } from "@/types/files";
 import { FileShareDialog } from "./FileShareDialog";
 
 type FileViewMode = "preview" | "source" | "edit";
@@ -51,6 +52,9 @@ export function FileManager() {
   const [saving, setSaving] = useState(false);
   const [shareTarget, setShareTarget] = useState<FileEntry | null>(null);
   const [openActionPath, setOpenActionPath] = useState("");
+  const [contentQuery, setContentQuery] = useState("");
+  const [contentResults, setContentResults] = useState<ContentSearchResult[]>([]);
+  const [contentSearching, setContentSearching] = useState(false);
   const actionEntry = entries.find((entry) => entry.path === openActionPath);
 
   async function load(nextPath = path) {
@@ -68,6 +72,32 @@ export function FileManager() {
     } finally {
       setUploading(false);
     }
+  }
+
+  async function runContentSearch() {
+    const query = contentQuery.trim();
+    if (!query) {
+      setContentResults([]);
+      return;
+    }
+    setContentSearching(true);
+    try {
+      setContentResults((await searchFileContents(query)) || []);
+    } catch (error) {
+      dispatch(appActions.showToast(error instanceof Error ? error.message : "搜索知识库失败"));
+    } finally {
+      setContentSearching(false);
+    }
+  }
+
+  function openSearchResult(result: ContentSearchResult) {
+    void openFile({
+      name: result.name,
+      path: result.path,
+      is_dir: false,
+      size: result.size,
+      mod_time: result.mod_time ? String(result.mod_time) : undefined,
+    });
   }
 
   async function openFile(entry: FileEntry, preferredMode?: FileViewMode) {
@@ -204,6 +234,24 @@ export function FileManager() {
                   </span>
                 </label>
               </div>
+              <div className="flex w-full min-w-0 gap-2 pt-1">
+                <div className="relative min-w-0 flex-1">
+                  <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    className="pl-9"
+                    value={contentQuery}
+                    onChange={(event) => setContentQuery(event.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter") void runContentSearch();
+                    }}
+                    placeholder="全文搜索知识库正文"
+                  />
+                </div>
+                <Button className="min-w-24 justify-center whitespace-nowrap" variant="outline" onClick={() => void runContentSearch()} disabled={contentSearching}>
+                  <Search className="h-4 w-4" />
+                  {contentSearching ? "搜索中" : "全文搜索"}
+                </Button>
+              </div>
             </>
           )}
         </PanelHeader>
@@ -215,8 +263,27 @@ export function FileManager() {
               <FileViewerContent viewer={viewer} mode={viewMode} draft={draft} onDraftChange={setDraft} />
             </div>
           ) : (
-            <div className="overflow-hidden rounded-md border">
-              <table className="w-full text-sm">
+            <>
+              {contentQuery.trim() ? (
+                <div className="mb-4 space-y-2 rounded-lg border border-primary/20 bg-primary/5 p-3">
+                  <div className="flex items-center justify-between gap-2 text-sm font-medium">
+                    <span>正文搜索：{contentQuery.trim()}</span>
+                    <span className="text-xs font-normal text-muted-foreground">{contentResults.length} 条结果</span>
+                  </div>
+                  {contentResults.length ? contentResults.map((result, index) => (
+                    <button key={`${result.path}:${result.line}:${index}`} type="button" className="block w-full rounded-md border border-border/70 bg-card/70 p-2 text-left transition-colors hover:bg-accent/50" onClick={() => openSearchResult(result)}>
+                      <div className="flex items-center gap-2 text-sm font-medium text-primary">
+                        <FileText className="h-4 w-4 shrink-0" />
+                        <span className="truncate">{result.path}</span>
+                        <span className="shrink-0 text-xs text-muted-foreground">{result.line > 0 ? `第 ${result.line} 行` : "文件名匹配"}</span>
+                      </div>
+                      <div className="mt-1 truncate text-xs text-muted-foreground">{result.text || "（空行）"}</div>
+                    </button>
+                  )) : <div className="py-3 text-sm text-muted-foreground">没有找到匹配的正文。</div>}
+                </div>
+              ) : null}
+              <div className="overflow-hidden rounded-md border">
+                <table className="w-full text-sm">
                 <thead className="bg-muted text-muted-foreground">
                   <tr>
                     <th className="px-3 py-2 text-left">名称</th>
@@ -276,8 +343,9 @@ export function FileManager() {
                     </tr>
                   ))}
                 </tbody>
-              </table>
-            </div>
+                </table>
+              </div>
+            </>
           )}
         </PanelBody>
       </Panel>

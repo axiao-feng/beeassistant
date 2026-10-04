@@ -90,7 +90,7 @@ export function ConfigPanel() {
   const persisted = useAppSelector((state) => state.config.value);
   const tools = useAppSelector((state) => state.config.tools);
   const [draft, setDraft] = useState<AppConfig | undefined>(persisted);
-  const [activeTab, setActiveTab] = useState<ConfigTab>("models");
+  const [activeTab, setActiveTab] = useState<ConfigTab>(() => configTabFromLocation());
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const modelIDs = useMemo(() => (draft?.models || []).map((model) => model.id).filter(Boolean), [draft?.models]);
@@ -219,6 +219,11 @@ export function ConfigPanel() {
       </div>
     </div>
   );
+}
+
+function configTabFromLocation(): ConfigTab {
+  const requested = new URLSearchParams(location.search).get("tab") as ConfigTab | null;
+  return requested && tabs.some((tab) => tab.key === requested) ? requested : "models";
 }
 
 function ModelsTab({ draft, updateDraft }: EditorProps) {

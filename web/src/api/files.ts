@@ -1,4 +1,4 @@
-import type { FileContent, FileEntry, PreviewLink } from "@/types/files";
+import type { ContentSearchResult, FileContent, FileEntry, PreviewLink } from "@/types/files";
 import { del, get, post, put, request } from "./client";
 
 export function listFiles(path = "") {
@@ -8,6 +8,10 @@ export function listFiles(path = "") {
 
 export function searchFiles(q: string) {
   return get<FileEntry[]>(`/api/fkteams/files/search?q=${encodeURIComponent(q)}`);
+}
+
+export function searchFileContents(q: string) {
+  return get<ContentSearchResult[]>(`/api/fkteams/files/content-search?q=${encodeURIComponent(q)}`);
 }
 
 export function deleteFile(path: string) {

@@ -14,6 +14,15 @@ export interface FileContent {
   mod_time?: string | number;
 }
 
+export interface ContentSearchResult {
+  name: string;
+  path: string;
+  line: number;
+  text: string;
+  size?: number;
+  mod_time?: number;
+}
+
 export interface PreviewLink {
   id?: string;
   link_id?: string;

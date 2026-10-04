@@ -443,6 +443,13 @@ func resolveSkillPath(slug, subPath string, allowRoot bool) (string, string, err
 	if cleanSub == "" && !allowRoot {
 		return "", "", fmt.Errorf("path is required")
 	}
+	if cleanSub != "" {
+		for _, component := range strings.Split(cleanSub, "/") {
+			if err := pathguard.ValidatePortablePathComponent(component); err != nil {
+				return "", "", fmt.Errorf("invalid path")
+			}
+		}
+	}
 	if cleanSub == ".." || strings.HasPrefix(cleanSub, "../") ||
 		strings.HasPrefix(cleanSub, "/") || hasWindowsVolumePrefix(cleanSub) ||
 		filepath.IsAbs(filepath.FromSlash(cleanSub)) {

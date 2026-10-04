@@ -13,6 +13,7 @@ import (
 
 	"fkteams/internal/app/appdata"
 	"fkteams/internal/runtime/atomicfile"
+	"fkteams/internal/runtime/pathguard"
 
 	"github.com/gin-gonic/gin"
 )
@@ -263,6 +264,11 @@ func cleanBackupPath(raw string) (string, bool) {
 	clean := path.Clean(name)
 	if clean == "." || clean == ".." || strings.HasPrefix(clean, "../") || strings.Contains(clean, ":") {
 		return "", false
+	}
+	for _, component := range strings.Split(clean, "/") {
+		if err := pathguard.ValidatePortablePathComponent(component); err != nil {
+			return "", false
+		}
 	}
 	return clean, true
 }

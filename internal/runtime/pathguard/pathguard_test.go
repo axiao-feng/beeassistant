@@ -7,6 +7,21 @@ import (
 	"testing"
 )
 
+func TestValidatePortablePathComponent(t *testing.T) {
+	valid := []string{"notes.txt", "中文文件.md", "folder_name"}
+	for _, name := range valid {
+		if err := ValidatePortablePathComponent(name); err != nil {
+			t.Errorf("ValidatePortablePathComponent(%q) = %v, want nil", name, err)
+		}
+	}
+	invalid := []string{"CON", "NUL.txt", "file.txt:secret", "trailing.", "trailing ", "bad<name>", "a/b"}
+	for _, name := range invalid {
+		if err := ValidatePortablePathComponent(name); err == nil {
+			t.Errorf("ValidatePortablePathComponent(%q) = nil, want error", name)
+		}
+	}
+}
+
 func TestResolveWorkspaceRelativePath(t *testing.T) {
 	base := t.TempDir()
 	got, err := ResolveWorkspace(base, "dir/file.txt")
@@ -18,6 +33,13 @@ func TestResolveWorkspaceRelativePath(t *testing.T) {
 	}
 	if got.AbsPath != filepath.Join(base, "dir", "file.txt") {
 		t.Fatalf("unexpected abs path: %q", got.AbsPath)
+	}
+}
+
+func TestResolveWorkspaceAllowsNamesStartingWithTwoDots(t *testing.T) {
+	base := t.TempDir()
+	if _, err := ResolveWorkspace(base, "..notes.txt"); err != nil {
+		t.Fatalf("valid filename was rejected: %v", err)
 	}
 }
 

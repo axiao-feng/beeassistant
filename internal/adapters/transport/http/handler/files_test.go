@@ -24,6 +24,17 @@ type rawResponse struct {
 	Data    json.RawMessage `json:"data"`
 }
 
+func TestSafeUploadedFileNameRejectsWindowsSpecialNames(t *testing.T) {
+	for _, name := range []string{"CON", "NUL.txt", "secret.txt:stream", "trailing.", "bad<name>"} {
+		if _, err := safeUploadedFileName(name); err == nil {
+			t.Errorf("safeUploadedFileName(%q) accepted unsafe name", name)
+		}
+	}
+	if got, err := safeUploadedFileName(`folder\\notes.txt`); err != nil || got != "notes.txt" {
+		t.Fatalf("safeUploadedFileName nested path = %q, %v; want notes.txt", got, err)
+	}
+}
+
 func TestGetFilesAndSearchHandlers(t *testing.T) {
 	workspace := setupWorkspaceDir(t)
 	if err := os.Mkdir(filepath.Join(workspace, "docs"), 0755); err != nil {

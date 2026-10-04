@@ -6,11 +6,13 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 	"sync"
 
 	"fkteams/internal/app/appdata"
+	"fkteams/internal/runtime/pathguard"
 )
 
 const (
@@ -154,11 +156,17 @@ func safeArchiveTarget(cleanDest, archivePath string) (string, error) {
 	if archivePath == "" || strings.ContainsRune(archivePath, '\x00') {
 		return "", fmt.Errorf("invalid skill archive path")
 	}
-	cleanRelative := filepath.Clean(filepath.FromSlash(archivePath))
+	normalizedArchivePath := strings.ReplaceAll(archivePath, `\`, "/")
+	cleanRelative := path.Clean(normalizedArchivePath)
 	if cleanRelative == "." || filepath.IsAbs(cleanRelative) || filepath.VolumeName(cleanRelative) != "" {
 		return "", fmt.Errorf("invalid skill archive path: %s", archivePath)
 	}
-	targetPath := filepath.Join(cleanDest, cleanRelative)
+	for _, component := range strings.Split(cleanRelative, "/") {
+		if err := pathguard.ValidatePortablePathComponent(component); err != nil {
+			return "", fmt.Errorf("invalid skill archive path: %s", archivePath)
+		}
+	}
+	targetPath := filepath.Join(cleanDest, filepath.FromSlash(cleanRelative))
 	relative, err := filepath.Rel(cleanDest, targetPath)
 	if err != nil || relative == ".." || strings.HasPrefix(relative, ".."+string(os.PathSeparator)) || filepath.IsAbs(relative) {
 		return "", fmt.Errorf("invalid skill archive path: %s", archivePath)

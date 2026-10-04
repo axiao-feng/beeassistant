@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"unicode/utf8"
 )
 
 // ResolvedPath 表示已校验的工作区内路径。
@@ -14,6 +15,35 @@ type ResolvedPath struct {
 	BaseAbs string
 	AbsPath string
 	RelPath string
+}
+
+// ValidatePortablePathComponent rejects names that are unsafe or ambiguous on
+// Windows, including alternate data streams and DOS device names. Applying
+// the same rule on every platform keeps uploaded files and skills portable.
+func ValidatePortablePathComponent(component string) error {
+	if component == "" || component == "." || component == ".." {
+		return fmt.Errorf("invalid path component")
+	}
+	if utf8.RuneCountInString(component) > 255 {
+		return fmt.Errorf("path component is too long")
+	}
+	for _, r := range component {
+		if r < 0x20 || strings.ContainsRune(`<>:"/\\|?*`, r) {
+			return fmt.Errorf("path component contains unsupported characters")
+		}
+	}
+	if strings.TrimRight(component, " .") != component {
+		return fmt.Errorf("path component cannot end with a dot or space")
+	}
+	base := strings.ToUpper(component)
+	if dot := strings.IndexByte(base, '.'); dot >= 0 {
+		base = base[:dot]
+	}
+	switch base {
+	case "CON", "PRN", "AUX", "NUL", "COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7", "COM8", "COM9", "LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9":
+		return fmt.Errorf("reserved Windows device name")
+	}
+	return nil
 }
 
 // ResolveWorkspace 将 userPath 解析到 baseDir 下，并校验已有路径或最近存在的父目录
@@ -78,7 +108,7 @@ func ResolveWorkspace(baseDir, userPath string) (ResolvedPath, error) {
 	if relPath == "." {
 		relPath = ""
 	}
-	if relPath != "" && strings.HasPrefix(relPath, "..") {
+	if relPath == ".." || strings.HasPrefix(relPath, ".."+string(os.PathSeparator)) {
 		return ResolvedPath{}, fmt.Errorf("path is outside workspace")
 	}
 

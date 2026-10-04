@@ -19,6 +19,15 @@ type fakeProvider struct {
 	err  error
 }
 
+func TestSafeArchiveTargetRejectsWindowsSpecialNames(t *testing.T) {
+	dest := t.TempDir()
+	for _, archivePath := range []string{"CON.txt", "assets/NUL", "notes.txt:stream", "folder/trailing."} {
+		if _, err := safeArchiveTarget(dest, archivePath); err == nil {
+			t.Errorf("safeArchiveTarget(%q) accepted unsafe path", archivePath)
+		}
+	}
+}
+
 func (p fakeProvider) Name() string { return "fake" }
 
 func (p fakeProvider) Search(context.Context, string, int, int, string, string) (*SearchResponse, error) {

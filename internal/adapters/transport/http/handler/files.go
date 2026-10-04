@@ -255,6 +255,9 @@ func safeUploadedFileName(name string) (string, error) {
 	if fileName == "." || fileName == ".." || fileName == "" || strings.ContainsRune(fileName, 0) {
 		return "", fmt.Errorf("invalid uploaded file name")
 	}
+	if err := pathguard.ValidatePortablePathComponent(fileName); err != nil {
+		return "", fmt.Errorf("invalid uploaded file name: %w", err)
+	}
 	return fileName, nil
 }
 

@@ -1,5 +1,5 @@
 import type { SessionDetail, SessionSearchResult, SessionSummary } from "@/types/chat";
-import { del, get, post } from "./client";
+import { del, get, patch, post } from "./client";
 
 export function listSessions() {
   return get<{ sessions: SessionSummary[] }>("/api/fkteams/sessions");
@@ -28,6 +28,10 @@ export function renameSession(sessionID: string, title: string) {
 
 export function favoriteSession(sessionID: string, favorite: boolean) {
   return post<{ session_id: string; favorite: boolean }>("/api/fkteams/sessions/favorite", { session_id: sessionID, favorite });
+}
+
+export function updateSession(sessionID: string, changes: { archived?: boolean }) {
+  return patch<SessionSummary>(`/api/fkteams/sessions/${encodeURIComponent(sessionID)}`, changes);
 }
 
 export function updateSessionAgent(sessionID: string, agent: string) {

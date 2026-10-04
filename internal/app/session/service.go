@@ -27,6 +27,7 @@ type UpdateRequest struct {
 	SessionID    string
 	Title        *string
 	Favorite     *bool
+	Archived     *bool
 	Mode         *string
 	CurrentAgent *string
 }
@@ -85,7 +86,7 @@ func (s *Service) Update(ctx context.Context, req UpdateRequest) (domainsession.
 	if err != nil {
 		return domainsession.Metadata{}, err
 	}
-	if req.Title == nil && req.Favorite == nil && req.Mode == nil && req.CurrentAgent == nil {
+	if req.Title == nil && req.Favorite == nil && req.Archived == nil && req.Mode == nil && req.CurrentAgent == nil {
 		return domainsession.Metadata{}, apperror.New(apperror.CodeInvalidArgument, "at least one session field is required")
 	}
 	if req.Title != nil {
@@ -99,6 +100,9 @@ func (s *Service) Update(ctx context.Context, req UpdateRequest) (domainsession.
 		}
 		if req.Favorite != nil {
 			metadata.Favorite = *req.Favorite
+		}
+		if req.Archived != nil {
+			metadata.Archived = *req.Archived
 		}
 		if req.Mode != nil {
 			metadata.Mode = strings.TrimSpace(*req.Mode)

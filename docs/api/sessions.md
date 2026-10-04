@@ -148,12 +148,13 @@
 
 ## PATCH /api/fkteams/sessions/:sessionID
 
-按资源路径更新会话元数据。`title`、`favorite`、`current_agent` 至少提供一个；标题会去除首尾空白，超长时保留前 50 个 rune 并追加省略号。
+按资源路径更新会话元数据。`title`、`favorite`、`archived`、`current_agent` 至少提供一个；标题会去除首尾空白，超长时保留前 50 个 rune 并追加省略号。归档后的会话仍保留在历史记录中，但默认不显示在最近会话列表。
 
 ```json
 {
   "title": "新的标题",
   "favorite": true,
+  "archived": false,
   "current_agent": "coder"
 }
 ```

@@ -74,13 +74,14 @@ func TestCreateAndPatchUseConsistentNormalization(t *testing.T) {
 	}
 
 	favorite := true
+	archived := true
 	mode := " deep "
 	agent := " coder "
-	updated, err := service.Update(context.Background(), UpdateRequest{SessionID: "session-1", Favorite: &favorite, Mode: &mode, CurrentAgent: &agent})
+	updated, err := service.Update(context.Background(), UpdateRequest{SessionID: "session-1", Favorite: &favorite, Archived: &archived, Mode: &mode, CurrentAgent: &agent})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !updated.Favorite || updated.Mode != "deep" || updated.CurrentAgent != "coder" || !updated.UpdatedAt.Equal(fixedNow) {
+	if !updated.Favorite || !updated.Archived || updated.Mode != "deep" || updated.CurrentAgent != "coder" || !updated.UpdatedAt.Equal(fixedNow) {
 		t.Fatalf("unexpected metadata: %#v", updated)
 	}
 }

@@ -551,6 +551,17 @@ const sessionsSlice = createSlice({
         };
       }
     },
+    setSessionArchived(state, action: PayloadAction<{ sessionID: string; archived: boolean }>) {
+      const session = state.items.find((item) => item.session_id === action.payload.sessionID);
+      if (!session) return;
+      session.archived = action.payload.archived;
+      if (state.activeRequestStartedAt !== undefined) {
+        state.localPatches[action.payload.sessionID] = {
+          ...state.localPatches[action.payload.sessionID],
+          archived: action.payload.archived,
+        };
+      }
+    },
     removeSession(state, action: PayloadAction<string>) {
       state.items = state.items.filter((item) => item.session_id !== action.payload);
       delete state.localPatches[action.payload];

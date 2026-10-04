@@ -5,6 +5,7 @@ export interface SessionSummary {
   title: string;
   status?: string;
   favorite?: boolean;
+  archived?: boolean;
   active_task?: boolean;
   mod_time?: string;
   updated_at?: string;

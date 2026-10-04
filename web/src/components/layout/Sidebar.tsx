@@ -1,4 +1,5 @@
 import {
+  Archive,
   CalendarClock,
   FolderOpen,
   MoreVertical,
@@ -25,7 +26,7 @@ import { Input } from "@/components/ui/input";
 import { shortID, formatTime } from "@/lib/format";
 import { cn } from "@/lib/cn";
 import { chatPath, panelPath, pushAppPath } from "@/lib/navigation";
-import { deleteSession, favoriteSession, renameSession, searchSessions } from "@/api/sessions";
+import { deleteSession, favoriteSession, renameSession, searchSessions, updateSession } from "@/api/sessions";
 import type { SessionSearchResult, SessionSummary } from "@/types/chat";
 import { SessionShareDialog } from "./SessionShareDialog";
 
@@ -47,7 +48,7 @@ const sessionStatusLabels: Record<string, string> = {
 };
 
 const sessionMenuWidth = 176;
-const sessionMenuHeight = 190;
+const sessionMenuHeight = 230;
 
 export function Sidebar() {
   const dispatch = useAppDispatch();
@@ -61,6 +62,7 @@ export function Sidebar() {
   const sessionMenuRef = useRef<HTMLDivElement | null>(null);
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [showArchivedSessions, setShowArchivedSessions] = useState(false);
   const [contentResults, setContentResults] = useState<SessionSearchResult[]>([]);
   const [contentSearching, setContentSearching] = useState(false);
   const sidebarOpen = useAppSelector((state) => state.app.sidebarOpen);
@@ -74,7 +76,9 @@ export function Sidebar() {
     const text = `${session.title || ""} ${session.session_id}`.toLowerCase();
     return text.includes(searchQuery.toLowerCase());
   });
-  const groups = groupSessions(sortedSessions);
+  const archivedSessionCount = sortedSessions.filter((session) => session.archived).length;
+  const visibleSessions = sortedSessions.filter((session) => Boolean(session.archived) === showArchivedSessions);
+  const groups = groupSessions(visibleSessions);
   const openMenuSession = sortedSessions.find((session) => session.session_id === openMenuID);
 
   useEffect(() => {
@@ -177,6 +181,18 @@ export function Sidebar() {
       closeSessionMenu();
     } catch (error) {
       dispatch(appActions.showToast(error instanceof Error ? error.message : "更新收藏失败"));
+    }
+  }
+
+  async function toggleArchive(session: { session_id: string; archived?: boolean }) {
+    const archived = !session.archived;
+    try {
+      await updateSession(session.session_id, { archived });
+      dispatch(sessionsActions.setSessionArchived({ sessionID: session.session_id, archived }));
+      closeSessionMenu();
+      dispatch(appActions.showToast(archived ? "会话已归档" : "会话已取消归档"));
+    } catch (error) {
+      dispatch(appActions.showToast(error instanceof Error ? error.message : "更新归档状态失败"));
     }
   }
 
@@ -301,12 +317,27 @@ export function Sidebar() {
 
       {sidebarOpen ? (
         <>
-          <div className="px-3 pb-1">
-            <div className="text-xs text-muted-foreground">最近会话</div>
+          <div className="flex items-center justify-between px-3 pb-1">
+            <div className="text-xs text-muted-foreground">{showArchivedSessions ? "已归档会话" : "最近会话"}</div>
+            <button
+              type="button"
+              className="flex items-center gap-1 rounded-md px-1.5 py-1 text-xs text-muted-foreground hover:bg-card/70 hover:text-foreground"
+              aria-label={showArchivedSessions ? "查看最近会话" : "查看已归档会话"}
+              aria-pressed={showArchivedSessions}
+              onClick={() => {
+                closeSessionMenu();
+                setShowArchivedSessions((value) => !value);
+              }}
+            >
+              <Archive className="h-3.5 w-3.5" />
+              {showArchivedSessions ? "最近会话" : `已归档${archivedSessionCount ? ` (${archivedSessionCount})` : ""}`}
+            </button>
           </div>
           <div className="min-h-0 flex-1 overflow-auto px-2 pb-2" onScroll={closeSessionMenu}>
-            {sortedSessions.length === 0 ? (
-              <div className="px-2 py-8 text-base text-muted-foreground">暂无会话</div>
+            {visibleSessions.length === 0 ? (
+              <div className="px-2 py-8 text-base text-muted-foreground">
+                {showArchivedSessions ? "暂无已归档会话" : sessions.length ? "暂无最近会话" : "暂无会话"}
+              </div>
             ) : (
               groups.map((group) => (
                 <section key={group.label} className="mb-3">
@@ -399,7 +430,9 @@ export function Sidebar() {
           menuRef={sessionMenuRef}
           position={sessionMenuPosition}
           favorite={Boolean(openMenuSession.favorite)}
+          archived={Boolean(openMenuSession.archived)}
           onToggleFavorite={() => void toggleFavorite(openMenuSession)}
+          onToggleArchive={() => void toggleArchive(openMenuSession)}
           onRename={() => requestRename(openMenuSession)}
           onShare={() => requestShare(openMenuSession)}
           onDelete={() => requestDelete(openMenuSession)}
@@ -641,7 +674,9 @@ function SessionMenu({
   menuRef,
   position,
   favorite,
+  archived,
   onToggleFavorite,
+  onToggleArchive,
   onRename,
   onShare,
   onDelete,
@@ -649,7 +684,9 @@ function SessionMenu({
   menuRef: RefObject<HTMLDivElement | null>;
   position: { top: number; left: number };
   favorite: boolean;
+  archived: boolean;
   onToggleFavorite: () => void;
+  onToggleArchive: () => void;
   onRename: () => void;
   onShare: () => void;
   onDelete: () => void;
@@ -663,6 +700,10 @@ function SessionMenu({
       <button className="flex h-10 w-full items-center gap-3 rounded-lg px-3 text-left hover:bg-accent/65" onClick={onToggleFavorite}>
         <Star className={cn("h-4 w-4", favorite && "fill-foreground")} />
         {favorite ? "取消收藏" : "收藏"}
+      </button>
+      <button className="flex h-10 w-full items-center gap-3 rounded-lg px-3 text-left hover:bg-accent/65" onClick={onToggleArchive}>
+        <Archive className="h-4 w-4" />
+        {archived ? "取消归档" : "归档"}
       </button>
       <button className="flex h-10 w-full items-center gap-3 rounded-lg px-3 text-left hover:bg-accent/65" onClick={onRename}>
         <Pencil className="h-4 w-4" />

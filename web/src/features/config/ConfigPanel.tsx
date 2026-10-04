@@ -167,8 +167,8 @@ export function ConfigPanel() {
         <Panel>
           <PanelHeader className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
             <div>
-              <div className="text-xl font-semibold">系统配置</div>
-              <div className="mt-1 text-sm text-muted-foreground">使用结构化表单编辑配置，敏感字段留空会保留当前值。</div>
+              <div className="text-xl font-semibold">偏好与系统配置</div>
+              <div className="mt-1 text-sm text-muted-foreground">管理模型、智能体、长期记忆、权限和个人工作方式。</div>
             </div>
             <div className="flex flex-wrap gap-2">
               <Button variant="outline" onClick={load} disabled={loading || saving}>

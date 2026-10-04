@@ -32,8 +32,8 @@ const panels: Array<{ key: AppPanel; label: string; icon: LucideIcon }> = [
   { key: "files", label: "文件与知识库", icon: FolderOpen },
   { key: "schedules", label: "待办与日程", icon: CalendarClock },
   { key: "shares", label: "分享", icon: Share2 },
-  { key: "skills", label: "技能", icon: Sparkles },
-  { key: "config", label: "配置", icon: Settings },
+  { key: "skills", label: "技能与自动化", icon: Sparkles },
+  { key: "config", label: "偏好与记忆", icon: Settings },
 ] as const;
 
 const sessionStatusLabels: Record<string, string> = {

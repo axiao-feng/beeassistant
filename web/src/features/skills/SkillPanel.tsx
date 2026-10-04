@@ -373,9 +373,9 @@ export function SkillPanel() {
             <div className="min-w-0">
               <div className="flex items-center gap-3">
                 <Sparkles className="h-5 w-5 text-primary" />
-                <h2 className="text-xl font-semibold">技能</h2>
+                <h2 className="text-xl font-semibold">技能与自动化</h2>
               </div>
-              <div className="mt-1 text-sm text-muted-foreground">管理本地技能，搜索市场技能，并直接查看技能文件内容。</div>
+              <div className="mt-1 text-sm text-muted-foreground">管理本地技能、搜索市场能力，并为个人工作流扩展自动化。</div>
             </div>
             <div className="grid w-full min-w-0 grid-cols-1 gap-2 sm:grid-cols-[minmax(0,1fr)_auto_auto_auto] xl:w-[660px]">
               <Input

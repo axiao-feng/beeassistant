@@ -89,8 +89,8 @@ function resolveTitle(
       files: "文件与知识库",
       schedules: "待办与日程",
       shares: "分享",
-      skills: "技能",
-      config: "配置",
+      skills: "技能与自动化",
+      config: "偏好与记忆",
     }[activePanel];
   }
   if (!activeSessionID) return "新会话";

@@ -262,10 +262,10 @@ func run(ctx context.Context, mode serverMode, opts *ServeOptions) error {
 	app.OnReady(func(ctx context.Context) error {
 		addr := httpSvc.Addr()
 		if mode == ModeAPI {
-			fmt.Printf("欢迎来到非空小队 - API 服务模式: %s\n", version.Get())
+			fmt.Printf("欢迎来到蜜蜂助手 - API 服务模式: %s\n", version.Get())
 			fmt.Printf("当前服务运行在 [%s]\n", addr)
 		} else {
-			fmt.Printf("欢迎来到非空小队 - 服务端模式: %s\n", version.Get())
+			fmt.Printf("欢迎来到蜜蜂助手 - 服务端模式: %s\n", version.Get())
 			fmt.Printf("当前服务运行在 [%s]\n", addr)
 			fmt.Printf("前端页面地址: http://%s\n", addr)
 		}

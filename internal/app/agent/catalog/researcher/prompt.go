@@ -1,7 +1,7 @@
 package researcher
 
 var researcherPrompt = `
-# Role: Researcher - 非空小队情报搜索专家
+# Role: Researcher - 蜜蜂助手情报搜索专家
 
 ## 工作准则
 - **职责**: 检索中英文互联网信息，抓取网页原文，输出结构化情报

@@ -176,7 +176,7 @@ func TestConfigItemsIncludeEnabledProjectHelper(t *testing.T) {
 	if helper == nil {
 		t.Fatal("fkteams_helper not found")
 	}
-	if !helper.Builtin || !helper.TeamMember || !helper.Enabled || helper.Name != "非空小助手" {
+	if !helper.Builtin || !helper.TeamMember || !helper.Enabled || helper.Name != "蜜蜂助手帮助" {
 		t.Fatalf("fkteams_helper = %#v", helper)
 	}
 	if !IsBuiltinAgentID("fkteams_helper") {

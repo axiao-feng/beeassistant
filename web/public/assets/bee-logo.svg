@@ -10,10 +10,8 @@
       <feDropShadow dx="2" dy="3" stdDeviation="1.5" flood-color="#5d4312" flood-opacity="0.18"/>
     </filter>
   </defs>
-
   <path d="M64 8 108 34v50l-44 26-44-26V34L64 8Z" fill="#fffdf4" stroke="#9b8755" stroke-width="4" stroke-linejoin="round" filter="url(#shadow)"/>
   <path d="M64 16 99 37v42L64 100 29 79V37L64 16Z" fill="url(#honey)" stroke="#d5a72b" stroke-width="3" stroke-linejoin="round"/>
-
   <path d="M43 48c-7-12-18-12-21-5 8 1 13 6 16 14Z" fill="#e9f5ff" stroke="#4b5964" stroke-width="3" stroke-linejoin="round"/>
   <path d="M85 48c7-12 18-12 21-5-8 1-13 6-16 14Z" fill="#e9f5ff" stroke="#4b5964" stroke-width="3" stroke-linejoin="round"/>
   <path d="M49 55c0-13 7-22 15-22s15 9 15 22v20c0 11-7 18-15 18s-15-7-15-18V55Z" fill="#f7c846" stroke="#302b22" stroke-width="4"/>

@@ -252,7 +252,7 @@ func builtinAgentSpecs() []builtinAgentSpec {
 	return []builtinAgentSpec{
 		{
 			id:               "coordinator",
-			displayName:      "协调者",
+			displayName:      "蜜蜂助手",
 			aliases:          []string{"小队长"},
 			enabledByDefault: true,
 			definition: func(*config.Config) common.Definition {
@@ -281,8 +281,8 @@ func builtinAgentSpecs() []builtinAgentSpec {
 		},
 		{
 			id:               "fkteams_helper",
-			displayName:      "非空小助手",
-			aliases:          []string{"非空小助手", "小助手", "helper", "help"},
+			displayName:      "蜜蜂助手帮助",
+			aliases:          []string{"蜜蜂助手帮助", "非空小助手", "小助手", "helper", "help"},
 			teamMember:       true,
 			enabledByDefault: true,
 			definition: func(*config.Config) common.Definition {
@@ -353,7 +353,7 @@ func ConfigItems(cfg *config.Config) []config.AgentConfig {
 		item := config.AgentConfig{
 			ID:          spec.id,
 			Name:        spec.displayName,
-			Description: def.Description,
+					Description: def.Description,
 			Prompt:      def.Instruction,
 			Tools:       append([]string(nil), def.ToolNames...),
 			Enabled:     spec.enabledByDefault,

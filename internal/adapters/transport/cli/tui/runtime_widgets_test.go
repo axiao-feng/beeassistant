@@ -66,7 +66,7 @@ func TestWelcomeAndStyledTextHelpers(t *testing.T) {
 		Workspace: "/tmp/ws",
 		Model:     "gpt",
 	}, 60))
-	for _, want := range []string{"非空小队", "team", "gpt", "/tmp/ws", "sid"} {
+	for _, want := range []string{"蜜蜂助手", "team", "gpt", "/tmp/ws", "sid"} {
 		if !strings.Contains(panel, want) {
 			t.Fatalf("welcome panel missing %q: %q", want, panel)
 		}

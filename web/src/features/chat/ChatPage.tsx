@@ -328,9 +328,9 @@ function ChatHome() {
     <div className="flex h-full items-center justify-center px-3 pb-6 pt-8 sm:px-6 sm:pb-10 sm:pt-20">
       <div className="w-full max-w-4xl">
         <div className="mb-6 flex flex-col items-center justify-center gap-3 text-center sm:mb-9 sm:flex-row sm:gap-4">
-          <img className="h-10 w-10 shrink-0 drop-shadow-sm sm:h-12 sm:w-12 md:h-14 md:w-14" src="/assets/fkteams-logo.svg" alt="" />
+          <img className="h-10 w-10 shrink-0 drop-shadow-sm sm:h-12 sm:w-12 md:h-14 md:w-14" src="/assets/bee-logo.svg" alt="蜜蜂助手" />
           <h1 className="text-2xl font-semibold tracking-normal text-foreground sm:text-4xl md:text-5xl">
-            {greeting()}，非空小队
+            {greeting()}，蜜蜂助手
           </h1>
         </div>
         <ChatInput variant="hero" className="mx-auto max-w-3xl" />

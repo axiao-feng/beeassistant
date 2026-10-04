@@ -898,8 +898,8 @@ func GenerateExample() error {
 			Items: []AgentConfig{
 				{
 					ID:          "coordinator",
-					Name:        "协调者",
-					Description: "核心工程智能体，直接完成常规工程任务，并按需指派专业成员。",
+					Name:        "蜜蜂助手",
+					Description: "个人综合助手，直接处理日常任务，并在确有必要时调用专业成员。",
 					Prompt:      "",
 					Tools:       []string{"todo", "file", "command", "scheduler", "ask", "javascript"},
 					Enabled:     true,
@@ -922,8 +922,8 @@ func GenerateExample() error {
 				},
 				{
 					ID:          "fkteams_helper",
-					Name:        "非空小助手",
-					Description: "fkteams 项目助手，解答安装、配置、使用、扩展、架构和故障排查问题。",
+					Name:        "蜜蜂助手帮助",
+					Description: "蜜蜂助手的使用与配置助手，解答安装、配置、使用、扩展、架构和故障排查问题。",
 					Prompt:      "",
 					Tools:       []string{"search", "fetch"},
 					Enabled:     true,

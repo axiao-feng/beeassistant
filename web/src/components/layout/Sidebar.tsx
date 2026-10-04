@@ -224,10 +224,10 @@ export function Sidebar() {
           sidebarOpen ? "h-14 gap-2.5 px-3" : "h-20 flex-col justify-center gap-1.5 px-0",
         )}
       >
-        <img className="h-8 w-8 shrink-0 drop-shadow-sm" src="/assets/fkteams-logo.svg" alt="" />
+        <img className="h-8 w-8 shrink-0 drop-shadow-sm" src="/assets/bee-logo.svg" alt="蜜蜂助手" />
         {sidebarOpen ? (
           <div className="flex min-w-0 flex-1 items-center gap-2">
-            <div className="truncate text-lg font-semibold tracking-normal">非空小队</div>
+            <div className="truncate text-lg font-semibold tracking-normal">蜜蜂助手</div>
             <span className="shrink-0 rounded-full border border-border/75 bg-card/70 px-1.5 py-0.5 text-[11px] leading-none text-muted-foreground">
               {version?.version || "dev"}
             </span>

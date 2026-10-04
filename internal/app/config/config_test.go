@@ -313,7 +313,7 @@ func TestGenerateExample(t *testing.T) {
 		t.Fatalf("read generated config: %v", err)
 	}
 	text := string(data)
-	for _, want := range []string{"GPT-5", "deepseek-chat", "非空小助手", "sk-fkteams-your-api-key", "channels/weixin/credentials.json", "MCP服务名称", "auto_approve"} {
+	for _, want := range []string{"GPT-5", "deepseek-chat", "蜜蜂助手帮助", "sk-fkteams-your-api-key", "channels/weixin/credentials.json", "MCP服务名称", "auto_approve"} {
 		if !strings.Contains(text, want) {
 			t.Fatalf("generated config missing %q", want)
 		}

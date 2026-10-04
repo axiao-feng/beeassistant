@@ -14,9 +14,9 @@ export function LoginPage() {
       <Panel className="w-full max-w-md">
         <PanelHeader className="px-6 py-5 sm:px-7 sm:py-6">
           <div className="flex items-center gap-4">
-            <img className="h-12 w-12 shrink-0 drop-shadow-sm" src="/assets/fkteams-logo.svg" alt="" />
+            <img className="h-12 w-12 shrink-0 drop-shadow-sm" src="/assets/bee-logo.svg" alt="蜜蜂助手" />
             <div>
-              <div className="text-2xl font-semibold">非空小队</div>
+              <div className="text-2xl font-semibold">蜜蜂助手</div>
               <div className="mt-1 text-base text-muted-foreground">登录后继续使用</div>
             </div>
           </div>

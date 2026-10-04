@@ -94,7 +94,7 @@ func (rt *Runtime) WebSocketHandlerWithState(state *appstate.State) gin.HandlerF
 
 		_ = writeJSON(map[string]any{
 			"type":    events.NotifyConnected,
-			"message": "欢迎连接到非空小队",
+			"message": "欢迎连接到蜜蜂助手",
 		})
 
 		for {

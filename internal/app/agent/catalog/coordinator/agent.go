@@ -9,7 +9,7 @@ import (
 func DefaultDefinition(agentTools ...runtimeport.Tool) common.Definition {
 	return common.Definition{
 		Name:        "coordinator",
-		Description: "核心工程智能体，直接完成常规工程任务，并按需指派专业成员。",
+		Description: "个人综合助手，直接处理日常任务，并在确有必要时调用专业成员。",
 		Instruction: coordinatorPrompt,
 		Profile:     common.ProfileTeam,
 		TemplateVars: map[string]any{

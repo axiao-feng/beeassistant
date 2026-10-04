@@ -153,7 +153,7 @@ func RenderWelcomePanel(info WelcomeInfo, width int) string {
 func welcomeLeft(info WelcomeInfo, width int) string {
 	var lines []string
 	lines = append(lines,
-		welcomeTitleStyle().Render("非空小队 "+info.Version),
+		welcomeTitleStyle().Render("蜜蜂助手 "+info.Version),
 		Dim("欢迎回来"),
 		"",
 		welcomeMarkStyle().Render("  协同思考 · 稳定推进"),

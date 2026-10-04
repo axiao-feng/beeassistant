@@ -11,6 +11,8 @@ const (
 	memoryContextContentBudget = 2400
 	memorySummaryLimit         = 80
 	memoryDetailLimit          = 180
+	memorySummaryTarget        = memorySummaryLimit * 4 / 5
+	memoryDetailTarget         = memoryDetailLimit * 4 / 5
 )
 
 const memoryUsageGuide = `## 如何使用记忆

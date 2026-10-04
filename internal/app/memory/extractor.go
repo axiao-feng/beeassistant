@@ -147,6 +147,16 @@ JSON 数组（无 markdown 包裹，无多余文字）：
 
 %s`
 
+const compressPrompt = `请压缩下面这条长期记忆，只保留原文已有的事实、偏好和适用条件，不要新增推断。
+
+要求：
+- summary 最多 %d 个字符，优先保留结论
+- detail 最多 %d 个字符，保留必要的原因和适用方式
+- 输出严格 JSON，不要 Markdown，不要额外文字
+
+原始记忆：
+{"summary":%q,"detail":%q}`
+
 // extractedEntry LLM 返回的提取结果
 type extractedEntry struct {
 	Type    MemoryType `json:"type"`
@@ -189,6 +199,7 @@ func Extract(ctx context.Context, messages []Message, sessionID string, llmClien
 		if !AllMemoryTypes[e.Type] {
 			continue
 		}
+		e.Summary, e.Detail = compactExtractedMemory(ctx, e.Summary, e.Detail, llmClient)
 		entries = append(entries, MemoryEntry{
 			ID:        fmt.Sprintf("%s_%d", sessionID, now.UnixNano()),
 			Type:      e.Type,
@@ -202,4 +213,42 @@ func Extract(ctx context.Context, messages []Message, sessionID string, llmClien
 		now = now.Add(time.Nanosecond)
 	}
 	return entries, nil
+}
+
+type compactedMemory struct {
+	Summary string `json:"summary"`
+	Detail  string `json:"detail"`
+}
+
+// compactExtractedMemory 仅在提取结果超过硬限制时调用模型压缩，
+// 压缩目标留出 20% 余量，避免同一条记忆反复触发压缩。
+func compactExtractedMemory(ctx context.Context, summary, detail string, llmClient LLMClient) (string, string) {
+	summary = strings.Join(strings.Fields(summary), " ")
+	detail = strings.Join(strings.Fields(detail), " ")
+	if utf8.RuneCountInString(summary) <= memorySummaryLimit && utf8.RuneCountInString(detail) <= memoryDetailLimit {
+		return summary, detail
+	}
+
+	if llmClient != nil {
+		prompt := fmt.Sprintf(compressPrompt, memorySummaryTarget, memoryDetailTarget, summary, detail)
+		if raw, err := llmClient.Complete(ctx, prompt); err == nil {
+			raw = strings.TrimSpace(raw)
+			raw = strings.TrimPrefix(raw, "```json\n")
+			raw = strings.TrimPrefix(raw, "```json")
+			raw = strings.TrimPrefix(raw, "```")
+			raw = strings.TrimSuffix(raw, "\n```")
+			raw = strings.TrimSuffix(raw, "```")
+			var compacted compactedMemory
+			if json.Unmarshal([]byte(strings.TrimSpace(raw)), &compacted) == nil {
+				compacted.Summary = strings.Join(strings.Fields(compacted.Summary), " ")
+				compacted.Detail = strings.Join(strings.Fields(compacted.Detail), " ")
+				if utf8.RuneCountInString(compacted.Summary) <= memorySummaryTarget && utf8.RuneCountInString(compacted.Detail) <= memoryDetailTarget && (compacted.Summary != "" || compacted.Detail != "") {
+					return compacted.Summary, compacted.Detail
+				}
+			}
+		}
+	}
+
+	// 压缩服务失败时仍限制长度，避免异常输出污染后续上下文。
+	return compactMemoryText(summary, memorySummaryTarget), compactMemoryText(detail, memoryDetailTarget)
 }

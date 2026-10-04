@@ -50,6 +50,26 @@ func TestExtractSkipsShortConversationWithoutLLMCall(t *testing.T) {
 	}
 }
 
+func TestExtractCompressesOversizedMemoryOnlyWhenNeeded(t *testing.T) {
+	longSummary := strings.Repeat("用户偏好简洁回答", 20)
+	longDetail := strings.Repeat("回答时先给结论，再补充必要说明。", 20)
+	llm := &sequenceLLM{responses: []string{
+		`[{"type":"preference","summary":"` + longSummary + `","detail":"` + longDetail + `","tags":["风格"]}]`,
+		`{"summary":"偏好简洁","detail":"先给结论，再补充必要说明"}`,
+	}}
+
+	entries, err := Extract(context.Background(), longConversationMessages(), "session-1", llm)
+	if err != nil {
+		t.Fatalf("Extract error: %v", err)
+	}
+	if len(entries) != 1 || entries[0].Summary != "偏好简洁" || entries[0].Detail != "先给结论，再补充必要说明" {
+		t.Fatalf("entries = %#v, want compressed memory", entries)
+	}
+	if llm.calls != 2 || !strings.Contains(llm.prompts[1], "压缩") {
+		t.Fatalf("calls/prompts = %d/%#v, want one extraction and one compression", llm.calls, llm.prompts)
+	}
+}
+
 func TestExtractReturnsLLMAndParseErrors(t *testing.T) {
 	if _, err := Extract(context.Background(), longConversationMessages(), "session-1", &fakeLLMClient{err: errors.New("down")}); err == nil || !strings.Contains(err.Error(), "llm complete failed") {
 		t.Fatalf("llm error = %v", err)
@@ -95,4 +115,20 @@ func (f *fakeLLMClient) Complete(ctx context.Context, prompt string) (string, er
 	f.calls++
 	f.prompt = prompt
 	return f.response, f.err
+}
+
+type sequenceLLM struct {
+	responses []string
+	calls     int
+	prompts   []string
+}
+
+func (s *sequenceLLM) Complete(_ context.Context, prompt string) (string, error) {
+	s.prompts = append(s.prompts, prompt)
+	response := s.responses[len(s.responses)-1]
+	if s.calls < len(s.responses) {
+		response = s.responses[s.calls]
+	}
+	s.calls++
+	return response, nil
 }

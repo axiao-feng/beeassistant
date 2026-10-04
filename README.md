@@ -1,26 +1,27 @@
 <div align="center">
-  <h1>fkteams 非空小队</h1>
+  <h1>蜜蜂助手</h1>
   <p>
-    <a href="https://github.com/wsshow/feikong-teams/releases"><img src="https://img.shields.io/github/v/release/wsshow/feikong-teams" alt="Release"></a>
-    <a href="./go.mod"><img src="https://img.shields.io/github/go-mod/go-version/wsshow/feikong-teams" alt="Go Version"></a>
+    <a href="https://github.com/axiao-feng/beeassistant/releases"><img src="https://img.shields.io/github/v/release/axiao-feng/beeassistant" alt="Release"></a>
+    <a href="./go.mod"><img src="https://img.shields.io/github/go-mod/go-version/axiao-feng/beeassistant" alt="Go Version"></a>
     <a href="./LICENSE"><img src="https://img.shields.io/github/license/wsshow/feikong-teams" alt="License"></a>
   </p>
-  <p><strong>让专业智能体协作完成复杂任务</strong></p>
-  <p>一个可本地运行的开源多智能体协作 AI 助手，面向软件开发、资料研究、数据分析、远程运维和自动化任务，并通过 Web、CLI、API 与消息通道提供一致的长任务体验。</p>
+  <p><strong>你的个人综合 AI 助手</strong></p>
+  <p>一个可本地运行的个人综合助手，优先直接处理日常问题，并在复杂任务确有必要时调用专业智能体协作。</p>
 </div>
 
 ![fkteams Web 任务执行界面](./docs/images/fkteams_web_task.png)
 
-## 为什么选择 fkteams
+## 为什么选择蜜蜂助手
 
-- **真正的多智能体协作**：协调者按任务调度代码、研究、分析、远程运维等专业智能体，支持团队、深度和圆桌讨论模式。
+- **单助手优先**：日常问答、写作、规划和简单操作由主助手直接完成，减少不必要的等待和反复确认。
+- **按需使用多智能体**：遇到开发、研究、分析、远程运维等专业任务时，再调度对应智能体协作。
 - **多入口一致体验**：Web、CLI、OpenAI 兼容 API、Discord、QQ 和微信共享同一套会话与执行能力。
 - **面向长任务设计**：支持后台执行、断线恢复、运行中转向与续问队列，并可随时查看成员进度和工具调用。
 - **能力扩展灵活**：内置文件、命令、搜索、文档、表格、Git、SSH 等工具，可通过 MCP、Skills、JavaScript、自定义智能体和工作区规则继续扩展。
 - **从对话到自动化**：支持多模态输入、长期记忆、定时任务、文件分享和独立智能体执行。
 - **本地数据与安全边界**：会话、配置和工作区默认保存在本地；高风险工具支持权限策略、人工确认和执行审计。
 
-![非空小队能力概览](./docs/images/fkteams.png)
+![蜜蜂助手能力概览](./docs/images/fkteams.png)
 
 ## 快速开始
 
@@ -38,7 +39,7 @@ Windows PowerShell：
 powershell -c "irm https://raw.githubusercontent.com/wsshow/feikong-teams/main/install.ps1 | iex"
 ```
 
-也可以从 [GitHub Releases](https://github.com/wsshow/feikong-teams/releases) 手动下载。自定义安装目录等说明见[部署指南](./docs/deployment.md#安装发行版)。
+也可以从 [GitHub Releases](https://github.com/axiao-feng/beeassistant/releases) 手动下载。自定义安装目录等说明见[部署指南](./docs/deployment.md#安装发行版)。
 
 ### 2. 配置模型
 
@@ -54,7 +55,7 @@ fkteams login
 fkteams web
 ```
 
-打开 <http://localhost:23456>，即可创建第一个多智能体任务。
+打开 <http://localhost:23456>，即可开始使用个人综合助手。
 
 启用 Web 登录认证后，凭据变更或登录过期不会丢失当前页面和后台任务；重新登录后 Web UI 会自动恢复任务事件流。认证配置和部署建议见[配置指南](./docs/configuration.md#服务与认证)。
 
@@ -69,7 +70,7 @@ fkteams web
 
 CLI 也支持直接查询、管道输入、恢复会话和调用指定智能体。完整命令见[使用指南](./docs/usage.md)，接口定义见 [API 文档](./docs/api/README.md)。
 
-对安装、配置、Skills、MCP、自定义智能体、自定义工具或流程 Hooks 有疑问时，可以直接选择内置的“非空小助手”；团队模式下协调者也会把 fkteams 项目问题交给它处理。
+对安装、配置、Skills、MCP、自定义智能体、自定义工具或流程 Hooks 有疑问时，可以直接选择内置的“蜜蜂助手帮助”。
 
 ## 扩展能力
 
@@ -84,8 +85,8 @@ CLI 也支持直接查询、管道输入、恢复会话和调用指定智能体�
 源码构建需要 Go 和 Bun：
 
 ```bash
-git clone https://github.com/wsshow/feikong-teams.git
-cd feikong-teams
+git clone https://github.com/axiao-feng/beeassistant.git
+cd beeassistant
 make native
 ```
 

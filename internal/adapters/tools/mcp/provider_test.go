@@ -10,6 +10,7 @@ import (
 	"fkteams/internal/app/config"
 	runtimeport "fkteams/internal/ports/runtime"
 	toolport "fkteams/internal/ports/tools"
+	runtimelog "fkteams/internal/runtime/log"
 
 	"github.com/mark3labs/mcp-go/client"
 )
@@ -118,6 +119,7 @@ func TestProviderSerializesColdLoadsAndClosesOwnedClients(t *testing.T) {
 
 func TestProviderReturnsEmptyGroupsWithNoEnabledServers(t *testing.T) {
 	t.Setenv("FEIKONG_APP_DIR", t.TempDir())
+	t.Cleanup(func() { _ = runtimelog.Close() })
 	if err := config.Save(&config.Config{
 		Tools: config.ToolSettings{
 			MCPServers: []config.MCPServer{
@@ -139,6 +141,7 @@ func TestProviderReturnsEmptyGroupsWithNoEnabledServers(t *testing.T) {
 
 func TestSetupMCPClientsRejectsUnsupportedTransport(t *testing.T) {
 	t.Setenv("FEIKONG_APP_DIR", t.TempDir())
+	t.Cleanup(func() { _ = runtimelog.Close() })
 	if err := config.Save(&config.Config{
 		Tools: config.ToolSettings{
 			MCPServers: []config.MCPServer{

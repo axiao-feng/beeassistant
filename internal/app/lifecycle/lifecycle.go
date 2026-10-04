@@ -157,6 +157,7 @@ func (app *Application) Run(ctx context.Context) error {
 	if ctx == nil {
 		ctx = context.Background()
 	}
+	defer func() { _ = log.Close() }()
 	app.mu.Lock()
 	if app.running {
 		app.mu.Unlock()

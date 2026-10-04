@@ -2,6 +2,7 @@
 package log
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -15,14 +16,19 @@ import (
 )
 
 var (
-	sugar *zap.SugaredLogger
-	once  sync.Once
+	loggerMu sync.Mutex
+	sugar    *zap.SugaredLogger
+	hook     *lumberjack.Logger
+	once     sync.Once
 )
 
 func logger() *zap.SugaredLogger {
+	loggerMu.Lock()
+	defer loggerMu.Unlock()
+
 	once.Do(func() {
 		level := readLevel()
-		hook := &lumberjack.Logger{
+		hook = &lumberjack.Logger{
 			Filename:   filepath.Join(appDir(), "log", "fkteams.log"),
 			MaxSize:    10,
 			MaxBackups: 30,
@@ -49,6 +55,26 @@ func logger() *zap.SugaredLogger {
 		sugar = zap.New(core, zap.AddCaller(), zap.AddCallerSkip(1)).Sugar()
 	})
 	return sugar
+}
+
+// Close flushes and closes the application log file. It is safe to call more
+// than once and allows Windows to remove temporary directories after tests or
+// after the application has shut down.
+func Close() error {
+	loggerMu.Lock()
+	defer loggerMu.Unlock()
+
+	var closeErrors []error
+	if sugar != nil {
+		closeErrors = append(closeErrors, sugar.Sync())
+	}
+	if hook != nil {
+		closeErrors = append(closeErrors, hook.Close())
+	}
+	sugar = nil
+	hook = nil
+	once = sync.Once{}
+	return errors.Join(closeErrors...)
 }
 
 func appDir() string {

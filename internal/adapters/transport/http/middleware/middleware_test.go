@@ -11,6 +11,7 @@ import (
 
 	"fkteams/internal/app/config"
 	"fkteams/internal/runtime/env"
+	runtimelog "fkteams/internal/runtime/log"
 
 	"github.com/gin-gonic/gin"
 )
@@ -145,6 +146,7 @@ func TestAPIKeyAuth(t *testing.T) {
 
 func TestAuthRejectsAPIAndRedirectsPageToLogin(t *testing.T) {
 	t.Setenv(env.AppDir, t.TempDir())
+	t.Cleanup(func() { _ = runtimelog.Close() })
 	if err := config.Save(&config.Config{Server: config.Server{Auth: config.ServerAuth{
 		Enabled:  true,
 		Username: "admin",
@@ -197,6 +199,7 @@ func TestAuthRejectsAPIAndRedirectsPageToLogin(t *testing.T) {
 
 func TestAuthReadsHotReloadedConfig(t *testing.T) {
 	t.Setenv(env.AppDir, t.TempDir())
+	t.Cleanup(func() { _ = runtimelog.Close() })
 	if err := config.Save(&config.Config{}); err != nil {
 		t.Fatalf("save disabled config: %v", err)
 	}

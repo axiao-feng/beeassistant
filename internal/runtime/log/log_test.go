@@ -5,7 +5,6 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"sync"
 	"testing"
 
 	"go.uber.org/zap/zapcore"
@@ -42,6 +41,7 @@ func TestLoggerWritesToAppLogFile(t *testing.T) {
 	resetLogger(t)
 	appDir := t.TempDir()
 	t.Setenv(env.AppDir, appDir)
+	defer func() { _ = Close() }()
 
 	Info("hello log")
 	Printf("formatted %s", "message")
@@ -87,13 +87,8 @@ func TestLoggerIsSingleton(t *testing.T) {
 func resetLogger(t *testing.T) {
 	t.Helper()
 
-	sugar = nil
-	once = sync.Once{}
+	_ = Close()
 	t.Cleanup(func() {
-		if sugar != nil {
-			_ = sugar.Sync()
-		}
-		sugar = nil
-		once = sync.Once{}
+		_ = Close()
 	})
 }

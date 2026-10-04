@@ -13,6 +13,7 @@ import (
 
 	"fkteams/internal/app/config"
 	"fkteams/internal/runtime/env"
+	runtimelog "fkteams/internal/runtime/log"
 
 	"github.com/gin-gonic/gin"
 )
@@ -314,6 +315,7 @@ func saveHandlerConfig(t *testing.T, cfg config.Config) {
 	t.Helper()
 
 	t.Setenv(env.AppDir, t.TempDir())
+	t.Cleanup(func() { _ = runtimelog.Close() })
 	if err := config.Save(&cfg); err != nil {
 		t.Fatalf("save config: %v", err)
 	}

@@ -164,6 +164,51 @@ func TestManagerWaitTracksHitStatsUpdate(t *testing.T) {
 	}
 }
 
+func TestManagerSearchIncludesBehavioralMemoriesForUnrelatedQuery(t *testing.T) {
+	manager := NewManager(t.TempDir(), nil, nil)
+	manager.entries = []MemoryEntry{
+		{ID: "preference", Type: Preference, Summary: "偏好简洁回答", Detail: "结论优先，少说废话", CreatedAt: time.Now().Add(-time.Hour)},
+		{ID: "feedback", Type: Feedback, Summary: "不要反复确认", Detail: "能够安全推进时直接执行", CreatedAt: time.Now()},
+		{ID: "fact", Type: Fact, Summary: "用户是 Go 开发者", Detail: "主要使用 Go", CreatedAt: time.Now()},
+	}
+	manager.rebuildIndex()
+
+	entries := manager.Search("今天天气怎么样", 5)
+	if len(entries) != 2 {
+		t.Fatalf("entries = %#v, want two behavioral memories", entries)
+	}
+	if entries[0].Type != Feedback || entries[1].Type != Preference {
+		t.Fatalf("entries = %#v, want newest feedback and preference", entries)
+	}
+}
+
+func TestManagerSearchReservesBehavioralMemorySlots(t *testing.T) {
+	manager := NewManager(t.TempDir(), nil, nil)
+	manager.entries = []MemoryEntry{
+		{ID: "fact-1", Type: Fact, Summary: "项目使用 Go", Detail: "后端代码", CreatedAt: time.Now()},
+		{ID: "fact-2", Type: Fact, Summary: "项目使用 Go 服务", Detail: "接口代码", CreatedAt: time.Now()},
+		{ID: "fact-3", Type: Fact, Summary: "项目使用 Go 工具", Detail: "工具代码", CreatedAt: time.Now()},
+		{ID: "fact-4", Type: Fact, Summary: "项目使用 Go 测试", Detail: "测试代码", CreatedAt: time.Now()},
+		{ID: "preference", Type: Preference, Summary: "偏好中文", Detail: "使用中文回答", CreatedAt: time.Now()},
+	}
+	manager.rebuildIndex()
+
+	entries := manager.Search("项目 Go", 5)
+	if len(entries) != 5 {
+		t.Fatalf("entries = %#v, want five entries", entries)
+	}
+	foundPreference := false
+	for _, entry := range entries {
+		if entry.ID == "preference" {
+			foundPreference = true
+			break
+		}
+	}
+	if !foundPreference {
+		t.Fatalf("entries = %#v, want reserved preference slot", entries)
+	}
+}
+
 func TestManagerWaitHonorsContextDeadline(t *testing.T) {
 	llm := &blockingLLMClient{
 		started: make(chan struct{}),

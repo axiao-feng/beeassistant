@@ -3,6 +3,14 @@ package memory
 import (
 	"fmt"
 	"strings"
+	"unicode/utf8"
+)
+
+const (
+	// 记忆正文要给当前任务和工具调用留出上下文空间，不能无限增长。
+	memoryContextContentBudget = 2400
+	memorySummaryLimit         = 80
+	memoryDetailLimit          = 180
 )
 
 const memoryUsageGuide = `## 如何使用记忆
@@ -37,31 +45,48 @@ func BuildMemoryContext(entries []MemoryEntry) string {
 		grouped[e.Type] = append(grouped[e.Type], e)
 	}
 
-	var sb strings.Builder
-	sb.WriteString("<!-- MEMORY_CONTEXT_START -->\n")
-
-	hasContent := false
+	var content strings.Builder
 	for _, tc := range typeOrder {
 		items := grouped[tc.Type]
 		if len(items) == 0 {
 			continue
 		}
-		if !hasContent {
-			sb.WriteString("## 长期记忆\n\n")
-			hasContent = true
-		}
-		fmt.Fprintf(&sb, "### %s\n\n", tc.Title)
+		var section strings.Builder
 		for _, item := range items {
-			fmt.Fprintf(&sb, "- **%s**：%s\n", item.Summary, item.Detail)
+			summary := compactMemoryText(item.Summary, memorySummaryLimit)
+			detail := compactMemoryText(item.Detail, memoryDetailLimit)
+			if summary == "" && detail == "" {
+				continue
+			}
+			line := fmt.Sprintf("- **%s**：%s\n", summary, detail)
+			candidate := section.String() + line
+			if utf8.RuneCountInString("## 长期记忆\n\n"+content.String()+candidate) > memoryContextContentBudget {
+				break
+			}
+			section.WriteString(line)
 		}
-		sb.WriteString("\n")
+		if section.Len() > 0 {
+			fmt.Fprintf(&content, "### %s\n\n%s\n", tc.Title, section.String())
+		}
 	}
 
-	if !hasContent {
+	if content.Len() == 0 {
 		return ""
 	}
 
+	var sb strings.Builder
+	sb.WriteString("<!-- MEMORY_CONTEXT_START -->\n## 长期记忆\n\n")
+	sb.WriteString(content.String())
 	sb.WriteString(memoryUsageGuide)
 	sb.WriteString("<!-- MEMORY_CONTEXT_END -->\n")
 	return sb.String()
+}
+
+func compactMemoryText(value string, limit int) string {
+	value = strings.Join(strings.Fields(value), " ")
+	if limit <= 0 || utf8.RuneCountInString(value) <= limit {
+		return value
+	}
+	runes := []rune(value)
+	return string(runes[:limit-1]) + "…"
 }

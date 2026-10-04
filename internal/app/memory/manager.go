@@ -179,14 +179,52 @@ func (m *Manager) ExtractAndStoreAsync(messages []Message, sessionID string) boo
 // Search 检索记忆，使用 BM25 bigram 分词进行语义匹配
 func (m *Manager) Search(query string, topK int) []MemoryEntry {
 	m.mu.RLock()
-	results := m.bm25.Search(query, m.entries, topK)
-
-	var entries []MemoryEntry
+	results := m.bm25.Search(query, m.entries, 0)
+	var relevant []MemoryEntry
+	var behavioral []MemoryEntry
+	behavioralMatched := make(map[string]bool)
 	for _, r := range results {
-		if r.Score >= m.minScore {
-			entries = append(entries, *r.Entry)
+		if r.Score < m.minScore {
+			continue
+		}
+		if isBehavioralMemory(r.Entry.Type) {
+			behavioral = append(behavioral, *r.Entry)
+			behavioralMatched[r.Entry.ID] = true
+			continue
+		}
+		relevant = append(relevant, *r.Entry)
+	}
+	for i := range m.entries {
+		entry := m.entries[i]
+		if isBehavioralMemory(entry.Type) && !behavioralMatched[entry.ID] {
+			behavioral = append(behavioral, entry)
 		}
 	}
+	// 偏好和行为反馈是跨主题的工作规则，即使当前问题没有关键词命中，
+	// 也应保留少量注入机会，避免助手在不同话题下反复违背用户要求。
+	sort.SliceStable(behavioral, func(i, j int) bool {
+		return behavioral[i].CreatedAt.After(behavioral[j].CreatedAt)
+	})
+	if topK > 0 {
+		behavioralSlots := 2
+		if behavioralSlots > topK {
+			behavioralSlots = topK
+		}
+		if len(behavioral) < behavioralSlots {
+			behavioralSlots = len(behavioral)
+		}
+		relevantLimit := topK - behavioralSlots
+		if relevantLimit < 0 {
+			relevantLimit = 0
+		}
+		if len(relevant) > relevantLimit {
+			relevant = relevant[:relevantLimit]
+		}
+		if len(behavioral) > behavioralSlots {
+			behavioral = behavioral[:behavioralSlots]
+		}
+	}
+	entries := append(relevant, behavioral...)
 	m.mu.RUnlock()
 
 	// 命中统计只操作受限的内存条目，同步更新可避免每次查询创建协程。
@@ -199,6 +237,10 @@ func (m *Manager) Search(query string, topK int) []MemoryEntry {
 	}
 
 	return entries
+}
+
+func isBehavioralMemory(memoryType MemoryType) bool {
+	return memoryType == Preference || memoryType == Feedback
 }
 
 // Wait 等待所有异步提取任务完成（用于优雅退出）

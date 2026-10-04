@@ -86,7 +86,7 @@ function resolveTitle(
 ) {
   if (activePanel !== "chat") {
     return {
-      files: "文件",
+      files: "文件与知识库",
       schedules: "待办与日程",
       shares: "分享",
       skills: "技能",

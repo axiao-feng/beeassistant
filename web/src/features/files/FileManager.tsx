@@ -179,8 +179,8 @@ export function FileManager() {
           ) : (
             <>
               <div>
-                <div className="font-semibold">文件管理</div>
-                <div className="text-sm text-muted-foreground">当前路径：{path || "."}</div>
+                <div className="font-semibold">文件与知识库</div>
+                <div className="text-sm text-muted-foreground">整理个人文档、资料和知识库内容。当前路径：{path || "."}</div>
               </div>
               <div className="grid w-full min-w-0 grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-2 sm:w-auto sm:grid-cols-none sm:flex">
                 <Input

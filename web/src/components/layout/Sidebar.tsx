@@ -29,7 +29,7 @@ import { deleteSession, favoriteSession, renameSession } from "@/api/sessions";
 import { SessionShareDialog } from "./SessionShareDialog";
 
 const panels: Array<{ key: AppPanel; label: string; icon: LucideIcon }> = [
-  { key: "files", label: "文件", icon: FolderOpen },
+  { key: "files", label: "文件与知识库", icon: FolderOpen },
   { key: "schedules", label: "待办与日程", icon: CalendarClock },
   { key: "shares", label: "分享", icon: Share2 },
   { key: "skills", label: "技能", icon: Sparkles },

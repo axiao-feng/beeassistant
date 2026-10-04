@@ -312,7 +312,7 @@ function QuestionButton({ active, index, content, onClick }: { active: boolean; 
 function ChatHome() {
   const dispatch = useAppDispatch();
   const shortcuts: Array<{ label: string; icon: typeof FolderOpen; panel: AppPanel; path: string }> = [
-    { label: "文件", icon: FolderOpen, panel: "files", path: "/files" },
+    { label: "文件与知识库", icon: FolderOpen, panel: "files", path: "/files" },
     { label: "待办与日程", icon: CalendarClock, panel: "schedules", path: "/schedules" },
     { label: "技能", icon: Sparkles, panel: "skills", path: "/skills" },
     { label: "分享", icon: Share2, panel: "shares", path: "/shares" },

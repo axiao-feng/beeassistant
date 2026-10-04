@@ -200,9 +200,9 @@ export function SchedulePanel() {
             <div className="min-w-0">
               <div className="flex items-center gap-3">
                 <CalendarClock className="h-5 w-5 text-primary" />
-                <h2 className="text-xl font-semibold">任务</h2>
+                <h2 className="text-xl font-semibold">待办与日程</h2>
               </div>
-              <div className="mt-1 text-sm text-muted-foreground">查看计划任务状态、执行结果和历史记录。</div>
+              <div className="mt-1 text-sm text-muted-foreground">管理一次性待办、周期日程、执行结果和历史记录。</div>
             </div>
             <div className="grid w-full min-w-0 grid-cols-1 gap-2 sm:grid-cols-[minmax(0,1fr)_auto_auto] xl:w-[640px]">
               <Input className="min-w-0" value={keyword} onChange={(event) => setKeyword(event.target.value)} placeholder="搜索任务内容、ID 或状态" />

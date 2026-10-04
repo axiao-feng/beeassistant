@@ -181,7 +181,9 @@ func ExtractMemoryAsync(manager MemoryExtractor, messages []domainmemory.Message
 		return
 	}
 	copied := append([]domainmemory.Message(nil), messages...)
-	manager.ExtractAndStoreAsync(copied, sessionID)
+	if !manager.ExtractAndStoreAsync(copied, sessionID) {
+		log.Printf("[memory] async extraction was not scheduled: session=%s", sessionID)
+	}
 }
 
 func FlushMemory(ctx context.Context, manager MemoryExtractor, messages []domainmemory.Message, sessionID string) {

@@ -50,6 +50,13 @@ func TestExtractSkipsShortConversationWithoutLLMCall(t *testing.T) {
 	}
 }
 
+func TestExtractRejectsMissingLLMClient(t *testing.T) {
+	_, err := Extract(context.Background(), longConversationMessages(), "session-1", nil)
+	if err == nil || !strings.Contains(err.Error(), "llm client is not configured") {
+		t.Fatalf("error = %v, want missing client error", err)
+	}
+}
+
 func TestExtractCompressesOversizedMemoryOnlyWhenNeeded(t *testing.T) {
 	longSummary := strings.Repeat("用户偏好简洁回答", 20)
 	longDetail := strings.Repeat("回答时先给结论，再补充必要说明。", 20)

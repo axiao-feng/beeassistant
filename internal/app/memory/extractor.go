@@ -3,6 +3,7 @@ package memory
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -170,6 +171,9 @@ func Extract(ctx context.Context, messages []Message, sessionID string, llmClien
 	conversation := formatConversation(messages)
 	if conversation == "" {
 		return nil, nil
+	}
+	if llmClient == nil {
+		return nil, errors.New("memory llm client is not configured")
 	}
 
 	prompt := fmt.Sprintf(extractPrompt, conversation)

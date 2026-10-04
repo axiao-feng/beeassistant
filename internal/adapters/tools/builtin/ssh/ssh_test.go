@@ -23,6 +23,8 @@ func TestNewClientAndAddr(t *testing.T) {
 func TestResolveKnownHostsPathAndLimits(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	// os.UserHomeDir uses USERPROFILE on Windows rather than HOME.
+	t.Setenv("USERPROFILE", home)
 	path, err := resolveKnownHostsPath("~/.ssh/custom_hosts")
 	if err != nil {
 		t.Fatal(err)

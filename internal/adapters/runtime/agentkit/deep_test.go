@@ -48,7 +48,7 @@ func TestDeepAgentRejectsWorkspaceEscapes(t *testing.T) {
 			if mode == "symlink" {
 				path = "link.txt"
 				if err := os.Symlink(outside, filepath.Join(workspace, path)); err != nil {
-					t.Fatal(err)
+					t.Skipf("symlinks are unavailable in this Windows environment: %v", err)
 				}
 			}
 			args, _ := json.Marshal(map[string]string{"file_path": path, "content": "changed"})

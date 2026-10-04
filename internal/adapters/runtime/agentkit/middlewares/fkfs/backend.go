@@ -27,8 +27,18 @@ func NewLocalBackend(baseDir string) (*LocalBackend, error) {
 	if err != nil {
 		return nil, fmt.Errorf("resolve absolute path: %w", err)
 	}
-	if err := os.MkdirAll(absPath, 0755); err != nil {
-		return nil, fmt.Errorf("create directory %s: %w", absPath, err)
+	info, statErr := os.Stat(absPath)
+	switch {
+	case statErr == nil:
+		if !info.IsDir() {
+			return nil, fmt.Errorf("base path is not a directory: %s", absPath)
+		}
+	case os.IsNotExist(statErr):
+		if err := os.MkdirAll(absPath, 0755); err != nil {
+			return nil, fmt.Errorf("create directory %s: %w", absPath, err)
+		}
+	default:
+		return nil, fmt.Errorf("inspect base path %s: %w", absPath, statErr)
 	}
 	return &LocalBackend{
 		fs:      afero.NewBasePathFs(afero.NewOsFs(), absPath),
@@ -359,7 +369,7 @@ func (b *LocalBackend) GlobInfo(ctx context.Context, req *filesystem.GlobInfoReq
 				return nil
 			}
 			matchPath = filepath.ToSlash(rel)
-			resultPath = rel
+			resultPath = filepath.ToSlash(rel)
 		}
 
 		matched, matchErr := doublestar.Match(req.Pattern, matchPath)

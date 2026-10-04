@@ -1,10 +1,11 @@
-import { Menu, Share2 } from "lucide-react";
+import { Download, Menu, Share2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { appActions } from "@/app/store";
 import { useAppDispatch, useAppSelector } from "@/app/hooks";
 import { Button } from "@/components/ui/button";
 import { AuthExpiredDialog } from "@/features/auth/AuthExpiredDialog";
 import { shortID } from "@/lib/format";
+import type { ChatViewMessage } from "@/types/chat";
 import { Sidebar } from "./Sidebar";
 import { SessionShareDialog } from "./SessionShareDialog";
 
@@ -15,10 +16,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const [shareTarget, setShareTarget] = useState<{ session_id: string; title?: string } | null>(null);
   const activePanel = useAppSelector((state) => state.app.activePanel);
   const activeSessionID = useAppSelector((state) => state.chat.activeSessionID);
+  const messages = useAppSelector((state) => state.chat.messages);
   const sessions = useAppSelector((state) => state.sessions.items);
   const title = resolveTitle(activePanel, activeSessionID, sessions);
   const activeSession = sessions.find((item) => item.session_id === activeSessionID);
   const canShareSession = activePanel === "chat" && Boolean(activeSessionID);
+  const canExportSession = canShareSession && messages.some((message) => !message.hidden && message.content.trim());
 
   useEffect(() => {
     if (!toast) return;
@@ -51,15 +54,28 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               </div>
             </div>
             {canShareSession ? (
-              <button
-                className="flex h-9 w-9 shrink-0 items-center justify-center text-muted-foreground transition-colors hover:text-foreground"
-                aria-label="分享会话"
-                title="分享会话"
-                type="button"
-                onClick={() => setShareTarget({ session_id: activeSessionID, title: activeSession?.title })}
-              >
-                <Share2 className="h-4 w-4" />
-              </button>
+              <div className="flex shrink-0 items-center gap-1">
+                {canExportSession ? (
+                  <button
+                    className="flex h-9 w-9 items-center justify-center text-muted-foreground transition-colors hover:text-foreground"
+                    aria-label="导出会话"
+                    title="导出会话 Markdown"
+                    type="button"
+                    onClick={() => exportSessionMarkdown(activeSessionID, activeSession?.title, messages, dispatch)}
+                  >
+                    <Download className="h-4 w-4" />
+                  </button>
+                ) : null}
+                <button
+                  className="flex h-9 w-9 items-center justify-center text-muted-foreground transition-colors hover:text-foreground"
+                  aria-label="分享会话"
+                  title="分享会话"
+                  type="button"
+                  onClick={() => setShareTarget({ session_id: activeSessionID, title: activeSession?.title })}
+                >
+                  <Share2 className="h-4 w-4" />
+                </button>
+              </div>
             ) : null}
           </header>
           <div className="min-h-0 flex-1 overflow-hidden">{children}</div>
@@ -77,6 +93,39 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <AuthExpiredDialog open={authExpired} />
     </div>
   );
+}
+
+function exportSessionMarkdown(
+  sessionID: string,
+  title: string | undefined,
+  messages: ChatViewMessage[],
+  dispatch: ReturnType<typeof useAppDispatch>,
+) {
+  const name = title?.trim() || shortID(sessionID) || "会话";
+  const content = messages
+    .filter((message) => !message.hidden && message.content.trim())
+    .map((message) => {
+      const role = message.role === "user" ? "用户" : message.role === "assistant" ? "助手" : message.role === "tool" ? "工具" : "系统";
+      const agent = message.agent ? `（${message.agent}）` : "";
+      const time = message.createdAt ? `\n\n> ${message.createdAt}` : "";
+      return `## ${role}${agent}${time}\n\n${message.content.trim()}`;
+    })
+    .join("\n\n---\n\n");
+  const markdown = `# ${name}\n\n> 会话 ID：${sessionID}\n\n${content}\n`;
+  const blob = new Blob([markdown], { type: "text/markdown;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `beeteams-${safeFileName(name)}-${new Date().toISOString().slice(0, 10)}.md`;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+  dispatch(appActions.showToast("会话已导出"));
+}
+
+function safeFileName(value: string) {
+  return value.replace(/[<>:"/\\|?*\u0000-\u001f]/g, "_").trim().slice(0, 50) || "session";
 }
 
 function resolveTitle(

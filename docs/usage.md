@@ -41,8 +41,11 @@ beeteams serve --host 0.0.0.0 --port 8080
 适合开发者和高级用户：
 
 ```bash
-# 默认启动团队模式
+# 默认启动个人助手模式
 beeteams
+
+# 使用团队协作模式
+beeteams -m team
 
 # 启动深度分析模式
 beeteams -m deep
@@ -63,7 +66,7 @@ go run ./cmd/fkteams web
 # Web界面模式
 ./release/beeteams_darwin_arm64 web
 
-# 默认启动团队模式
+# 默认启动个人助手模式
 ./release/beeteams_darwin_arm64
 
 # 启动深度分析模式

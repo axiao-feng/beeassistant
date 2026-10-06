@@ -8,7 +8,7 @@ import (
 	runtimeport "fkteams/internal/ports/runtime"
 )
 
-// DefaultDefinition 返回非空小助手的默认定义。
+// DefaultDefinition 返回蜜蜂助手帮助的默认定义。
 func DefaultDefinition() common.Definition {
 	return common.Definition{
 		Name:        "fkteams_helper",
@@ -19,7 +19,7 @@ func DefaultDefinition() common.Definition {
 	}
 }
 
-// NewAgent 创建非空小助手。
+// NewAgent 创建蜜蜂助手帮助。
 func NewAgent(ctx context.Context) (runtimeport.Agent, error) {
 	return common.BuildAgent(ctx, DefaultDefinition())
 }

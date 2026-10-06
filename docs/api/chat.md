@@ -20,7 +20,7 @@
 {
   "session_id": "可选，不提供则自动生成 UUID",
   "message": "string",
-  "mode": "team",
+  "mode": "generalist",
   "agent_name": "string",
   "contents": []
 }
@@ -30,7 +30,7 @@
 | ---- | ---- | ---- | ---- |
 | `session_id` | string | 否 | 会话 ID；不提供时自动生成 UUID |
 | `message` | string | 条件 | 用户文本，和 `contents` 至少提供一个 |
-| `mode` | string | 否 | 运行模式，默认 `team`；具体值由 Runner 缓存解析 |
+| `mode` | string | 否 | 运行模式，默认 `generalist`（个人助手）；也可使用 `team`、`deep`、`roundtable` |
 | `agent_name` | string | 否 | 指定单个智能体，优先于 `mode` |
 | `contents` | array | 条件 | 多模态内容；存在时优先用于构建输入 |
 

@@ -17,7 +17,7 @@ func updateCommand() *ucli.Command {
 			if err := config.Init(); err != nil {
 				return err
 			}
-			return cliupdate.SelfUpdate("fkteams", "wsshow", "feikong-teams")
+			return cliupdate.SelfUpdate("beeteams", "axiao-feng", "beeassistant")
 		},
 	}
 }

@@ -23,7 +23,7 @@
 {
   "session_id": "可选，不提供则自动生成 UUID",
   "message": "用户消息",
-  "mode": "team",
+  "mode": "generalist",
   "agent_name": "可选，指定单个智能体",
   "contents": []
 }
@@ -33,7 +33,7 @@
 | ---- | ---- | ---- | ---- |
 | `session_id` | string | 否 | 会话 ID；提供时必须是合法会话 ID |
 | `message` | string | 条件 | 文本消息，和 `contents` 至少提供一个 |
-| `mode` | string | 否 | 运行模式，默认 `team`；支持值由 Runner 缓存解析 |
+| `mode` | string | 否 | 运行模式，默认 `generalist`（个人助手）；也可使用 `team`、`deep`、`roundtable` |
 | `agent_name` | string | 否 | 指定单个智能体，优先于 `mode` |
 | `contents` | array | 条件 | 多模态内容，结构同 [聊天接口](chat.md) |
 

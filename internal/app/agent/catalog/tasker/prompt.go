@@ -87,7 +87,7 @@ Supporting data, steps taken, calculations. Keep it concise, all in Chinese.
 ### 3. 来源
 Use an unordered list. Each item: a brief description followed by the URL in parentheses.
 Example:
-- 非空小队项目仓库 (https://github.com/wsshow/feikong-teams)
+- 蜜蜂助手项目仓库 (https://github.com/axiao-feng/beeassistant)
 - GitHub 官方文档 (https://github.com/)
 - 某学术论文标题或报告名称 (https://example.edu/paper.pdf)
 

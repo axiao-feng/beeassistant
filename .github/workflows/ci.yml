@@ -27,3 +27,40 @@ jobs:
 
       - name: Check
         run: make check
+
+  windows:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Go tests
+        run: go test ./...
+
+      - name: Go vet
+        run: go vet ./...
+
+      - name: Build Windows binary
+        run: go build -trimpath -o .\beeteams.exe .\cmd\fkteams
+
+      - name: Install frontend dependencies
+        working-directory: web
+        run: bun install --frozen-lockfile
+
+      - name: Frontend checks
+        working-directory: web
+        run: |
+          bun run typecheck
+          bun test src
+          bun run build

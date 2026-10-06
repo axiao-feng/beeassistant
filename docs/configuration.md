@@ -198,14 +198,14 @@ enabled = false
 app_id = "your_app_id"
 app_secret = "your_app_secret"
 sandbox = true
-mode = "team"
+mode = "generalist"
 agent_id = ""
 
 [channels.discord]
 enabled = false
 token = "your_discord_bot_token"
 allow_from = ""
-mode = "team"
+mode = "generalist"
 agent_id = ""
 
 [channels.weixin]
@@ -214,7 +214,7 @@ base_url = "https://ilinkai.weixin.qq.com"
 cred_path = "channels/weixin/credentials.json"
 log_level = "info"
 allow_from = ""
-mode = "team"
+mode = "generalist"
 agent_id = ""
 ```
 

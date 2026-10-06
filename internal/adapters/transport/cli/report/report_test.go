@@ -100,7 +100,7 @@ func TestConvertMarkdownFileToNiceHTMLFile(t *testing.T) {
 		t.Fatalf("read nice html file: %v", err)
 	}
 	html := string(data)
-	for _, want := range []string{"<!DOCTYPE html>", "非空小队 - 历史记录", "markdown-body", "Nice"} {
+	for _, want := range []string{"<!DOCTYPE html>", "蜜蜂助手 - 历史记录", "markdown-body", "Nice"} {
 		if !strings.Contains(html, want) {
 			t.Fatalf("nice html = %q, missing %q", html, want)
 		}

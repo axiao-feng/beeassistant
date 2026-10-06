@@ -27,7 +27,7 @@ func NewChatModel(ctx context.Context) (runtimeport.ChatModel, error) {
 	if modelCfg != nil && (modelCfg.APIKey != "" || modelCfg.Provider != "") {
 		return NewChatModelWithModelConfig(ctx, modelCfg)
 	}
-	return nil, fmt.Errorf("未配置默认模型，请运行 fkteams generate config 生成配置文件")
+	return nil, fmt.Errorf("未配置默认模型，请运行 beeteams generate config 生成配置文件")
 }
 
 // NewChatModelWithModelConfig 使用 ModelConfig 创建聊天模型

@@ -118,7 +118,7 @@ const htmlTemplate = `<!DOCTYPE html>
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>非空小队 - 历史记录</title>
+    <title>蜜蜂助手 - 历史记录</title>
     <style>
         * {
             margin: 0;

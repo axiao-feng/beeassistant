@@ -240,7 +240,7 @@ func switchModel(ctx context.Context, name, model string) error {
 	defaultModel := cfg.ResolveDefaultModel(config.ModelUseChat)
 	if name == "" && model != "" {
 		if defaultModel == nil {
-			return fmt.Errorf("尚未配置默认对话模型，请先使用 fkteams login 登录或 fkteams model sw 选择模型")
+			return fmt.Errorf("尚未配置默认对话模型，请先使用 beeteams login 登录或 beeteams model sw 选择模型")
 		}
 		oldModel := defaultModel.Model
 		defaultModel.Model = model
@@ -349,7 +349,7 @@ func findModelConfig(cfg *config.Config, candidates []config.ModelConfig, name s
 func switchCurrentModel(ctx context.Context, cfg *config.Config) error {
 	defaultModel := cfg.ResolveDefaultModel(config.ModelUseChat)
 	if defaultModel == nil {
-		return fmt.Errorf("尚未配置默认对话模型，请先使用 fkteams login 登录或 fkteams model sw 选择模型")
+		return fmt.Errorf("尚未配置默认对话模型，请先使用 beeteams login 登录或 beeteams model sw 选择模型")
 	}
 
 	selected, err := promptModelSelection(ctx, defaultModel.Provider, defaultModel.APIKey, defaultModel.BaseURL)
